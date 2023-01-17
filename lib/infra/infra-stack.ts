@@ -434,7 +434,7 @@ export class InfraStack extends Stack {
     if (props.jvmSysPropsString.toString() !== 'undefined') {
       // @ts-ignore
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; jvmSysPropsList=$(echo "${props.jvmSysPropsString.toString()}" | tr ',' '\\n');`
-      + 'for sysProp in $jvmSysPropsList;do;echo "-D$sysProp" >> config/jvm.options;done',
+      + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
       {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
