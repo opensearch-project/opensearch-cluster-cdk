@@ -32,6 +32,9 @@ export class OsClusterEntrypoint {
       let clientCount: number;
       let ingestCount: number;
       let mlCount: number;
+      let infraStackName: string;
+      let dataNodeStorage: number;
+      let mlNodeStorage: number;
 
       const vpcId: string = scope.node.tryGetContext('vpcId');
       const securityGroupId = scope.node.tryGetContext('securityGroupId');
@@ -62,9 +65,6 @@ export class OsClusterEntrypoint {
       }
 
       const dashboardUrl = `${scope.node.tryGetContext('dashboardsUrl')}`;
-      if (dashboardUrl.toString() === 'undefined') {
-        throw new Error('dashboardsUrl parameter is required. Please provide the artifact url to download');
-      }
 
       const cpuArch = `${scope.node.tryGetContext('cpuArch')}`;
       if (cpuArch.toString() === 'undefined') {
@@ -118,9 +118,25 @@ export class OsClusterEntrypoint {
         mlCount = parseInt(mlNodeCount, 10);
       }
 
+      const dataSize = `${scope.node.tryGetContext('dataNodeStorage')}`;
+      if (dataSize === 'undefined') {
+        dataNodeStorage = 100;
+      } else {
+        dataNodeStorage = parseInt(dataSize, 10);
+      }
+
+      const mlSize = `${scope.node.tryGetContext('mlNodeStorage')}`;
+      if (mlSize === 'undefined') {
+        mlNodeStorage = 100;
+      } else {
+        mlNodeStorage = parseInt(mlSize, 10);
+      }
+
       const jvmSysProps = `${scope.node.tryGetContext('jvmSysProps')}`;
 
-      const network = new NetworkStack(scope, 'OpenSearch-Network-Stack', {
+      const suffix = `${scope.node.tryGetContext('suffix')}`;
+
+      const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
         vpcId,
@@ -136,8 +152,14 @@ export class OsClusterEntrypoint {
 
       this.stacks.push(network);
 
+      if (suffix === 'undefined') {
+        infraStackName = 'opensearch-infra-stack';
+      } else {
+        infraStackName = `opensearch-infra-stack-${suffix}`;
+      }
+
       // @ts-ignore
-      const infraStack = new InfraStack(scope, 'OpenSearch-Infra-Stack', {
+      const infraStack = new InfraStack(scope, infraStackName, {
         vpc: this.vpc,
         securityDisabled: security,
         opensearchVersion: distVersion,
@@ -154,6 +176,8 @@ export class OsClusterEntrypoint {
         // @ts-ignore
         securityGroup: this.securityGroup,
         singleNodeCluster: isSingleNode,
+        dataNodeStorage,
+        mlNodeStorage,
         jvmSysPropsString: jvmSysProps,
         ...props,
       });
