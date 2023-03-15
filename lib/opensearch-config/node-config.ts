@@ -8,38 +8,26 @@ compatible open source license. */
 export const nodeConfig = new Map<string, object>();
 
 nodeConfig.set('manager', {
-  'node.name': 'manager-node',
-  'node.master': true,
-  'node.data': false,
-  'node.ingest': false,
+  'node.roles': [ 'cluster_manager' ]
 });
 
 nodeConfig.set('data', {
-  'node.name': 'data-node',
-  'node.master': false,
-  'node.data': true,
-  'node.ingest': true,
+  'node.roles': [ 'data', 'ingest' ]
 });
 
 nodeConfig.set('seed-manager', {
   'node.name': 'seed',
-  'node.master': true,
-  'node.data': false,
-  'node.ingest': false,
+  'node.roles': [ 'cluster_manager' ]
 });
 
 nodeConfig.set('seed-data', {
   'node.name': 'seed',
-  'node.master': true,
-  'node.data': true,
-  'node.ingest': false,
+  'node.roles': [ 'cluster_manager', 'data' ]
 });
 
 nodeConfig.set('client', {
   'node.name': 'client-node',
-  'node.master': false,
-  'node.data': false,
-  'node.ingest': false,
+  'node.roles': []
 });
 
 nodeConfig.set('ml', {
