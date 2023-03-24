@@ -38,11 +38,11 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | securityDisabled (required)       | boolean | Enable or disable security plugin                                                                                                                                        |
 | minDistribution (required)        | boolean | Is it the minimal OpenSearch distribution with no security and plugins                                                                                                   |
 | distributionUrl (required)        | string  | OpenSearch tar distribution url                                                                                                                                          |
-| dashboardsUrl (required)          | string  | OpenSearch Dashboards tar distribution url                                                                                                                               |
 | cpuArch (required)                | string  | CPU platform for EC2, could be either `x64` or `arm64`                                                                                                                   |
 | singleNodeCluster (required)      | boolean | Set `true` for single-node cluster else `false` for multi-node                                                                                                           |
 | serverAccessType (required)       | string  | Restrict server access based on ip address (ipv4/ipv6), prefix list and/or security group. See [Restricting Server Access](#restricting-server-access) for more details. |
 | restrictServerAccessTo (required) | string  | The value for `serverAccessType`, e.g., 10.10.10.10/32, pl-12345, sg-12345. See [Restricting Server Access](#restricting-server-access) for more details.                |
+| dashboardsUrl (Optional)          | string  | OpenSearch Dashboards tar distribution url                                                                                                                               |
 | vpcId (Optional)                  | string  | Re-use existing vpc, provide vpc id                                                                                                                                      |
 | securityGroupId (Optional)        | boolean | Re-use existing security group, provide security group id                                                                                                                |
 | cidr (Optional)                   | string  | User provided CIDR block for new Vpc, default is `10.0.0.0/16`                                                                                                           |
@@ -52,6 +52,12 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | ingestNodeCount (Optional)        | integer | Number of dedicated ingest nodes, default is 0                                                                                                                           |
 | mlNodeCount (Optional)            | integer | Number of dedicated machine learning nodes, default is 0                                                                                                                 |
 | jvmSysProps (Optional)            | string  | A comma-separated list of key=value pairs that will be added to `jvm.options` as JVM system properties.                                                                  |
+| suffix (Optional)                 | string  | An optional string identifier to be concatenated with infra stack name.                                                                                                  |
+| region (Optional)                 | string  | User provided aws region                                                                                                                                                 |
+| account (Optional)                | string  | User provided aws account                                                                                                                                                |
+| dataNodeStorage (Optional)        | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                  |
+| mlNodeStorage (Optional)          | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                  |
+
 
 * Before starting this step, ensure that your AWS CLI is correctly configured with access credentials.
 * Also ensure that you're running these commands in the current directory

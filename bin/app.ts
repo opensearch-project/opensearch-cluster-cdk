@@ -11,7 +11,9 @@ import { App } from 'aws-cdk-lib';
 import { OsClusterEntrypoint } from '../lib/os-cluster-entrypoint';
 
 const app = new App();
+const region = app.node.tryGetContext('region') ?? process.env.CDK_DEFAULT_REGION;
+const account = app.node.tryGetContext('account') ?? process.env.CDK_DEFAULT_ACCOUNT;
 
 new OsClusterEntrypoint(app, {
-  env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+  env: { account, region },
 });
