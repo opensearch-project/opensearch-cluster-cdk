@@ -12,6 +12,7 @@ import {
   InitCommand,
   InitElement,
   InitPackage,
+  Instance,
   InstanceClass,
   InstanceSize,
   InstanceType,
@@ -30,6 +31,7 @@ import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-
 import { join } from 'path';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
+import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
 
@@ -49,6 +51,8 @@ export interface infraProps extends StackProps{
     readonly ingestNodeCount: number,
     readonly clientNodeCount: number,
     readonly mlNodeCount: number,
+    readonly dataNodeStorage: number,
+    readonly mlNodeStorage: number,
     readonly jvmSysPropsString?: string
 }
 
@@ -62,9 +66,10 @@ export class InfraStack extends Stack {
     let clientNodeAsg: AutoScalingGroup;
     let seedConfig: string;
     let hostType: InstanceType;
+    let singleNodeInstance: Instance;
 
     const clusterLogGroup = new LogGroup(this, 'opensearchLogGroup', {
-      logGroupName: 'opensearchLogGroup/opensearch.log',
+      logGroupName: `${id}LogGroup/opensearch.log`,
       retention: RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -79,9 +84,34 @@ export class InfraStack extends Stack {
     const ec2InstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
 
+    const alb = new NetworkLoadBalancer(this, 'publicNlb', {
+      vpc: props.vpc,
+      internetFacing: true,
+      crossZoneEnabled: true,
+    });
+
+    if (!props.securityDisabled && !props.minDistribution) {
+      opensearchListener = alb.addListener('opensearch', {
+        port: 443,
+        protocol: Protocol.TCP,
+      });
+    } else {
+      opensearchListener = alb.addListener('opensearch', {
+        port: 80,
+        protocol: Protocol.TCP,
+      });
+    }
+
+    if (props.dashboardsUrl !== 'undefined') {
+      dashboardsListener = alb.addListener('dashboards', {
+        port: 8443,
+        protocol: Protocol.TCP,
+      });
+    }
+
     if (props.singleNodeCluster) {
       console.log('Single node value is true, creating single node configurations');
-      const singleDataNodeAsg = new AutoScalingGroup(this, 'dataNodeAsg', {
+      singleNodeInstance = new Instance(this, 'single-node-instance', {
         vpc: props.vpc,
         instanceType: ec2InstanceType,
         machineImage: MachineImage.latestAmazonLinux({
@@ -89,25 +119,36 @@ export class InfraStack extends Stack {
           cpuType: props.cpuType,
         }),
         role: instanceRole,
-        maxCapacity: 1,
-        minCapacity: 1,
-        desiredCapacity: 1,
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props)),
         initOptions: {
           ignoreFailures: false,
         },
-        signals: Signals.waitForAll(),
       });
-      clientNodeAsg = singleDataNodeAsg;
-      Tags.of(singleDataNodeAsg).add('role', 'client');
+      Tags.of(singleNodeInstance).add('role', 'client');
+
+      opensearchListener.addTargets('single-node-target', {
+        port: 9200,
+        targets: [new InstanceTarget(singleNodeInstance)],
+      });
+
+      if (props.dashboardsUrl !== 'undefined') {
+        // @ts-ignore
+        dashboardsListener.addTargets('single-node-osd-target', {
+          port: 5601,
+          targets: [new InstanceTarget(singleNodeInstance)],
+        });
+      }
+      new CfnOutput(this, 'private-ip', {
+        value: singleNodeInstance.instancePrivateIp,
+      });
     } else {
       if (props.managerNodeCount > 0) {
         managerAsgCapacity = props.managerNodeCount - 1;
@@ -194,7 +235,7 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'data')),
         initOptions: {
@@ -255,7 +296,7 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(props.mlNodeStorage, { deleteOnTermination: true }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'ml')),
           initOptions: {
@@ -266,48 +307,23 @@ export class InfraStack extends Stack {
 
         Tags.of(mlNodeAsg).add('role', 'ml-node');
       }
+
+      opensearchListener.addTargets('opensearchTarget', {
+        port: 9200,
+        targets: [clientNodeAsg],
+      });
+
+      if (props.dashboardsUrl !== 'undefined') {
+        // @ts-ignore
+        dashboardsListener.addTargets('dashboardsTarget', {
+          port: 5601,
+          targets: [clientNodeAsg],
+        });
+      }
     }
-
-    const alb = new NetworkLoadBalancer(this, 'publicNlb', {
-      vpc: props.vpc,
-      internetFacing: true,
-    });
-
-    if (!props.securityDisabled && !props.minDistribution) {
-      opensearchListener = alb.addListener('opensearch', {
-        port: 443,
-        protocol: Protocol.TCP,
-      });
-
-      dashboardsListener = alb.addListener('dashboards', {
-        port: 8443,
-        protocol: Protocol.TCP,
-      });
-    } else {
-      opensearchListener = alb.addListener('opensearch', {
-        port: 80,
-        protocol: Protocol.TCP,
-      });
-
-      dashboardsListener = alb.addListener('dashboards', {
-        port: 8443,
-        protocol: Protocol.TCP,
-      });
-    }
-
-    opensearchListener.addTargets('opensearchTarget', {
-      port: 9200,
-      targets: [clientNodeAsg],
-    });
-
-    dashboardsListener.addTargets('dashboardsTarget', {
-      port: 5601,
-      targets: [clientNodeAsg],
-    });
 
     new CfnOutput(this, 'loadbalancer-url', {
       value: alb.loadBalancerDnsName,
-      exportName: 'Loadbalancer-URL',
     });
   }
 
@@ -330,7 +346,7 @@ export class InfraStack extends Stack {
               cpu: {
                 measurement: [
                   // eslint-disable-next-line max-len
-                  'usage_active', 'usage_guest', 'usage_guest_nice', 'usage_idle', 'usage_iowait', 'usage_irq', 'usage_nice', 'usage_softirq', 'usage_steal', 'usage_system', 'usage_user', 'time_active', 'time_iowait', 'time_system', 'time_user'
+                  'usage_active', 'usage_guest', 'usage_guest_nice', 'usage_idle', 'usage_iowait', 'usage_irq', 'usage_nice', 'usage_softirq', 'usage_steal', 'usage_system', 'usage_user', 'time_active', 'time_iowait', 'time_system', 'time_user',
                 ],
               },
               disk: {
@@ -381,19 +397,8 @@ export class InfraStack extends Stack {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }),
-      InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${props.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
-          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }),
       InitCommand.shellCommand('sleep 15'),
     ];
-
-    cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;echo "server.host: 0.0.0.0" >> config/opensearch_dashboards.yml',
-      {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }));
 
     // Add opensearch.yml config
     if (props.singleNodeCluster) {
@@ -426,15 +431,15 @@ export class InfraStack extends Stack {
           }));
       }
 
-      if (props.distributionUrl.includes('ci.opensearch.org') || props.minDistribution) {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install '
-            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
-            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip`, {
+      if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install discovery-ec2', {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
       } else {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install discovery-ec2', {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install '
+            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
@@ -448,15 +453,6 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
-
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-          + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
-          + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
-          + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
-      {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }));
     }
 
     // Check if there are any jvm properties being passed
@@ -486,11 +482,37 @@ export class InfraStack extends Stack {
         }));
     }
 
-    cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-        + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
-      cwd: '/home/ec2-user',
-      ignoreErrors: false,
-    }));
+    // If OSD Url is present
+    if (props.dashboardsUrl !== 'undefined') {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${props.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
+          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;echo "server.host: 0.0.0.0" >> config/opensearch_dashboards.yml',
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+      if (props.securityDisabled && !props.minDistribution) {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
+            + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
+            + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
+            + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+      }
+
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
+          + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+    }
 
     return cfnInitConfig;
   }
