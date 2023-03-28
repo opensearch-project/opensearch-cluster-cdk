@@ -10,6 +10,7 @@ import { Stack, StackProps } from 'aws-cdk-lib';
 import {
   AmazonLinuxCpuType, IVpc, SecurityGroup, Vpc,
 } from 'aws-cdk-lib/aws-ec2';
+import { dump } from 'js-yaml';
 import { NetworkStack } from './networking/vpc-stack';
 import { InfraStack } from './infra/infra-stack';
 
@@ -32,6 +33,10 @@ export class OsClusterEntrypoint {
       let clientCount: number;
       let ingestCount: number;
       let mlCount: number;
+      let infraStackName: string;
+      let dataNodeStorage: number;
+      let mlNodeStorage: number;
+      let ymlConfig: string = 'undefined';
 
       const vpcId: string = scope.node.tryGetContext('vpcId');
       const securityGroupId = scope.node.tryGetContext('securityGroupId');
@@ -120,7 +125,19 @@ export class OsClusterEntrypoint {
 
       const jvmSysProps = `${scope.node.tryGetContext('jvmSysProps')}`;
 
-      const network = new NetworkStack(scope, 'OpenSearch-Network-Stack', {
+      const osConfig = `${scope.node.tryGetContext('additionalConfig')}`;
+      if (osConfig.toString() !== 'undefined') {
+        try {
+          const jsonObj = JSON.parse(osConfig);
+          ymlConfig = dump(jsonObj);
+        } catch (e) {
+          throw new Error(`Encountered following error while parsing additionalConfig json parameter: ${e}`);
+        }
+      }
+
+      const suffix = `${scope.node.tryGetContext('suffix')}`;
+
+      const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
         vpcId,
@@ -155,6 +172,7 @@ export class OsClusterEntrypoint {
         securityGroup: this.securityGroup,
         singleNodeCluster: isSingleNode,
         jvmSysPropsString: jvmSysProps,
+        additionalConfig: ymlConfig,
         ...props,
       });
 

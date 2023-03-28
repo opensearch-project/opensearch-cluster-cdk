@@ -11,6 +11,7 @@ import { OsClusterEntrypoint } from '../lib/os-cluster-entrypoint';
 
 test('Test Resources with security disabled multi-node', () => {
   const app = new App({
+
     context: {
       securityDisabled: true,
       minDistribution: false,
@@ -21,6 +22,7 @@ test('Test Resources with security disabled multi-node', () => {
       distVersion: '1.0.0',
       serverAccessType: 'ipv4',
       restrictServerAccessTo: 'all',
+      additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
     },
   });
 

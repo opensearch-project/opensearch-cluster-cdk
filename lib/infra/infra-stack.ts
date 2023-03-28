@@ -49,7 +49,10 @@ export interface infraProps extends StackProps{
     readonly ingestNodeCount: number,
     readonly clientNodeCount: number,
     readonly mlNodeCount: number,
-    readonly jvmSysPropsString?: string
+    readonly dataNodeStorage: number,
+    readonly mlNodeStorage: number,
+    readonly jvmSysPropsString?: string,
+    readonly additionalConfig?: string,
 }
 
 export class InfraStack extends Stack {
@@ -469,6 +472,16 @@ export class InfraStack extends Stack {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }));
+    }
+
+    // @ts-ignore
+    if (props.additionalConfig.toString() !== 'undefined') {
+      // @ts-ignore
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; echo "${props.additionalConfig}">>config/opensearch.yml`,
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
     }
 
     // final run command based on whether the distribution type is min or bundle
