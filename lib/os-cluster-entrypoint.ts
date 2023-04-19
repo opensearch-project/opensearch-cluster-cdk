@@ -37,6 +37,7 @@ export class OsClusterEntrypoint {
       let dataNodeStorage: number;
       let mlNodeStorage: number;
       let ymlConfig: string = 'undefined';
+      let jvmHeapSize: number = 1;
 
       const vpcId: string = scope.node.tryGetContext('vpcId');
       const securityGroupId = scope.node.tryGetContext('securityGroupId');
@@ -148,6 +149,14 @@ export class OsClusterEntrypoint {
 
       const suffix = `${scope.node.tryGetContext('suffix')}`;
 
+      const heapSize = `${scope.node.tryGetContext('jvmHeapSize')}`;
+      if (heapSize !== 'undefined') {
+        jvmHeapSize = parseInt(heapSize, 10);
+        if (Number.isNaN(jvmHeapSize)) {
+          throw new Error('heapSize parameter has to be a number');
+        }
+      }
+
       const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
@@ -192,6 +201,7 @@ export class OsClusterEntrypoint {
         mlNodeStorage,
         jvmSysPropsString: jvmSysProps,
         additionalConfig: ymlConfig,
+        jvmHeapSize,
         ...props,
       });
 
