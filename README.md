@@ -58,6 +58,8 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | account (Optional)                | string  | User provided aws account                                                                                                                                                                                                                                                                        |
 | dataNodeStorage (Optional)        | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
 | mlNodeStorage (Optional)          | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
+| jvmHeapSize (Optional)            | integer | User provided JVM heap memory size (integer) in Gb, defaults to 1Gb, e.g. `--context jvmHeapSize=2` to set heap to 2Gb                                                                                                                                                                           |
+
 
 
 * Before starting this step, ensure that your AWS CLI is correctly configured with access credentials.
