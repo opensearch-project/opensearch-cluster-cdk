@@ -55,6 +55,7 @@ export interface infraProps extends StackProps{
     readonly mlNodeStorage: number,
     readonly jvmSysPropsString?: string,
     readonly additionalConfig?: string,
+    readonly jvmHeapSize?: number,
 }
 
 export class InfraStack extends Stack {
@@ -463,6 +464,18 @@ export class InfraStack extends Stack {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; jvmSysPropsList=$(echo "${props.jvmSysPropsString.toString()}" | tr ',' '\\n');`
       + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
       {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+    }
+
+    // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
+    // @ts-ignore
+    if (props.jvmHeapSize > 1) {
+      const minHeap = `-Xms${props.jvmHeapSize}g`;
+      const maxHeap = `-Xmx${props.jvmHeapSize}g`;
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; sed -i -e "s/^-Xms[0-9a-z]*$/${minHeap}/g" config/jvm.options;
+      sed -i -e "s/^-Xmx[0-9a-z]*$/${maxHeap}/g" config/jvm.options;`, {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }));
