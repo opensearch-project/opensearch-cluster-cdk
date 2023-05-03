@@ -53,7 +53,9 @@ export interface infraProps extends StackProps{
     readonly mlNodeCount: number,
     readonly dataNodeStorage: number,
     readonly mlNodeStorage: number,
-    readonly jvmSysPropsString?: string
+    readonly jvmSysPropsString?: string,
+    readonly additionalConfig?: string,
+    readonly use50PercentHeap: boolean,
 }
 
 export class InfraStack extends Stack {
@@ -465,6 +467,30 @@ export class InfraStack extends Stack {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }));
+    }
+
+    // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
+    // @ts-ignore
+    if (props.use50PercentHeap) {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
+      totalMem=\`expr $(free -g | awk '/^Mem:/{print $2}') + 1\`;
+      heapSizeInGb=\`expr $totalMem / 2\`;
+      if [ $heapSizeInGb -lt 32 ];then minHeap="-Xms"$heapSizeInGb"g";maxHeap="-Xmx"$heapSizeInGb"g";else minHeap="-Xms32g";maxHeap="-Xmx32g";fi
+      sed -i -e "s/^-Xms[0-9a-z]*$/$minHeap/g" config/jvm.options;
+      sed -i -e "s/^-Xmx[0-9a-z]*$/$maxHeap/g" config/jvm.options;`, {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+    }
+
+    // @ts-ignore
+    if (props.additionalConfig.toString() !== 'undefined') {
+      // @ts-ignore
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; echo "${props.additionalConfig}">>config/opensearch.yml`,
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
     }
 
     // final run command based on whether the distribution type is min or bundle

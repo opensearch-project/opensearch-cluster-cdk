@@ -35,6 +35,7 @@ export class OsClusterEntrypoint {
       let infraStackName: string;
       let dataNodeStorage: number;
       let mlNodeStorage: number;
+      let ymlConfig: string = 'undefined';
 
       const vpcId: string = scope.node.tryGetContext('vpcId');
       const securityGroupId = scope.node.tryGetContext('securityGroupId');
@@ -136,6 +137,9 @@ export class OsClusterEntrypoint {
 
       const suffix = `${scope.node.tryGetContext('suffix')}`;
 
+      const use50heap = `${scope.node.tryGetContext('use50PercentHeap')}`;
+      const use50PercentHeap = use50heap === 'true';
+
       const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
@@ -179,6 +183,8 @@ export class OsClusterEntrypoint {
         dataNodeStorage,
         mlNodeStorage,
         jvmSysPropsString: jvmSysProps,
+        additionalConfig: ymlConfig,
+        use50PercentHeap,
         ...props,
       });
 
