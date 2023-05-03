@@ -55,7 +55,7 @@ export interface infraProps extends StackProps{
     readonly mlNodeStorage: number,
     readonly jvmSysPropsString?: string,
     readonly additionalConfig?: string,
-    readonly jvmHeapSize?: number,
+    readonly use50PercentHeap: boolean,
 }
 
 export class InfraStack extends Stack {
@@ -471,11 +471,13 @@ export class InfraStack extends Stack {
 
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
     // @ts-ignore
-    if (props.jvmHeapSize > 1) {
-      const minHeap = `-Xms${props.jvmHeapSize}g`;
-      const maxHeap = `-Xmx${props.jvmHeapSize}g`;
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; sed -i -e "s/^-Xms[0-9a-z]*$/${minHeap}/g" config/jvm.options;
-      sed -i -e "s/^-Xmx[0-9a-z]*$/${maxHeap}/g" config/jvm.options;`, {
+    if (props.use50PercentHeap) {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
+      totalMem=\`expr $(free -g | awk '/^Mem:/{print $2}') + 1\`;
+      heapSizeInGb=\`expr $totalMem / 2\`;
+      if [ $heapSizeInGb -lt 32 ];then minHeap="-Xms"$heapSizeInGb"g";maxHeap="-Xmx"$heapSizeInGb"g";else minHeap="-Xms32g";maxHeap="-Xmx32g";fi
+      sed -i -e "s/^-Xms[0-9a-z]*$/$minHeap/g" config/jvm.options;
+      sed -i -e "s/^-Xmx[0-9a-z]*$/$maxHeap/g" config/jvm.options;`, {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }));
