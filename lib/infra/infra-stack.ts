@@ -56,6 +56,7 @@ export interface infraProps extends StackProps{
     readonly jvmSysPropsString?: string,
     readonly additionalConfig?: string,
     readonly use50PercentHeap: boolean,
+    readonly isInternal: boolean,
 }
 
 export class InfraStack extends Stack {
@@ -86,26 +87,26 @@ export class InfraStack extends Stack {
     const ec2InstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
 
-    const alb = new NetworkLoadBalancer(this, 'publicNlb', {
+    const nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
       vpc: props.vpc,
-      internetFacing: true,
+      internetFacing: (!props.isInternal),
       crossZoneEnabled: true,
     });
 
     if (!props.securityDisabled && !props.minDistribution) {
-      opensearchListener = alb.addListener('opensearch', {
+      opensearchListener = nlb.addListener('opensearch', {
         port: 443,
         protocol: Protocol.TCP,
       });
     } else {
-      opensearchListener = alb.addListener('opensearch', {
+      opensearchListener = nlb.addListener('opensearch', {
         port: 80,
         protocol: Protocol.TCP,
       });
     }
 
     if (props.dashboardsUrl !== 'undefined') {
-      dashboardsListener = alb.addListener('dashboards', {
+      dashboardsListener = nlb.addListener('dashboards', {
         port: 8443,
         protocol: Protocol.TCP,
       });
@@ -325,7 +326,7 @@ export class InfraStack extends Stack {
     }
 
     new CfnOutput(this, 'loadbalancer-url', {
-      value: alb.loadBalancerDnsName,
+      value: nlb.loadBalancerDnsName,
     });
   }
 
