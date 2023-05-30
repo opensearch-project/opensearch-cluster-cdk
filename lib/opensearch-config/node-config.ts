@@ -44,6 +44,7 @@ export enum x64Ec2InstanceType {
   C5_XLARGE = 'c5.xlarge',
   R5_LARGE = 'r5.large',
   R5_XLARGE = 'r5.xlarge',
+  R5_2XLARGE = 'r5.2xlarge',
   G5_LARGE = 'g5.large',
   G5_XLARGE = 'g5.xlarge',
   INF1_XLARGE = 'inf1.xlarge',
@@ -57,6 +58,7 @@ export enum arm64Ec2InstanceType {
   C6G_XLARGE = 'c6g.xlarge',
   R6G_LARGE = 'r6g.large',
   R6G_XLARGE = 'r6g.xlarge',
+  R6G_2XLARGE = 'r6g.2xlarge',
   G5G_LARGE = 'g5g.large',
   G5G_XLARGE = 'g5g.xlarge'
 }
@@ -75,6 +77,8 @@ export const getX64InstanceTypes = (instanceType: string) => {
     return InstanceType.of(InstanceClass.R5, InstanceSize.LARGE);
   case x64Ec2InstanceType.R5_XLARGE:
     return InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE);
+  case x64Ec2InstanceType.R5_2XLARGE:
+    return InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE2);
   case x64Ec2InstanceType.G5_LARGE:
     return InstanceType.of(InstanceClass.G5, InstanceSize.LARGE);
   case x64Ec2InstanceType.G5_XLARGE:
@@ -102,6 +106,8 @@ export const getArm64InstanceTypes = (instanceType: string) => {
     return InstanceType.of(InstanceClass.R6G, InstanceSize.LARGE);
   case arm64Ec2InstanceType.R6G_XLARGE:
     return InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+  case arm64Ec2InstanceType.R6G_2XLARGE:
+    return InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE2);
   case arm64Ec2InstanceType.G5G_LARGE:
     return InstanceType.of(InstanceClass.G5G, InstanceSize.LARGE);
   case arm64Ec2InstanceType.G5G_XLARGE:

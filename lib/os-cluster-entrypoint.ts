@@ -27,12 +27,12 @@ const getInstanceType = (instanceType: string, arch: string) => {
     if (instanceType !== 'undefined') {
       return getX64InstanceTypes(instanceType);
     }
-    return getX64InstanceTypes('r5.large');
+    return getX64InstanceTypes('r5.2xlarge');
   }
   if (instanceType !== 'undefined') {
     return getArm64InstanceTypes(instanceType);
   }
-  return getArm64InstanceTypes('r6g.large');
+  return getArm64InstanceTypes('r6g.2xlarge');
 };
 
 export class OsClusterEntrypoint {
