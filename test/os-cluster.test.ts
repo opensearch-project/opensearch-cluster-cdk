@@ -54,7 +54,7 @@ test('Test Resources with security disabled multi-node default instance types', 
     Protocol: 'TCP',
   });
   infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.large',
+    InstanceType: 'r5.2xlarge',
     IamInstanceProfile: {
       Ref: 'dataNodeAsgInstanceProfileEC27E8D1',
     },
@@ -227,7 +227,7 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,g5g.large,g5g.xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,g5g.large,g5g.xlarge');
   }
 });
 
@@ -259,7 +259,7 @@ test('Throw error on ec2 instance outside of enum list', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,g5.large,g5.xlarge,inf1.xlarge,inf1.2xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,r5.2xlarge,g5.large,g5.xlarge,inf1.xlarge,inf1.2xlarge');
   }
 });
 
@@ -292,7 +292,7 @@ test('Test multi-node cluster with only data-nodes', () => {
   infraTemplate.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 2);
   infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 2);
   infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.large',
+    InstanceType: 'r5.2xlarge',
     IamInstanceProfile: {
       Ref: 'seedNodeAsgInstanceProfile6F1EA4FF',
     },
