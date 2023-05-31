@@ -54,7 +54,7 @@ test('Test Resources with security disabled multi-node default instance types', 
     Protocol: 'TCP',
   });
   infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.2xlarge',
+    InstanceType: 'r5.xlarge',
     IamInstanceProfile: {
       Ref: 'dataNodeAsgInstanceProfileEC27E8D1',
     },
@@ -292,7 +292,7 @@ test('Test multi-node cluster with only data-nodes', () => {
   infraTemplate.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 2);
   infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 2);
   infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.2xlarge',
+    InstanceType: 'r5.xlarge',
     IamInstanceProfile: {
       Ref: 'seedNodeAsgInstanceProfile6F1EA4FF',
     },
