@@ -5,6 +5,7 @@
   - [Required context parameters](#required-context-parameters)
   - [Interacting with OpenSearch cluster](#interacting-with-opensearch-cluster)
   - [Restricting Server Access](#restricting-server-access)
+  - [Enable Remote Store Feature](#enable-remote-store-feature)
 - [Check Logs](#check-logs)
 - [Access EC2 Instances](#access-ec2-instances)
 - [Port Mapping](#port-mapping)
@@ -62,6 +63,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | mlNodeStorage (Optional)          | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
 | use50PercentHeap (Optional)       | boolean | Boolean flag to use 50% of physical memory as heap. Default is 1GB.  e.g., `--context use50PercentHeap=true`                                                                                                                                                                                     |
 | isInternal (Optional)             | boolean | Boolean flag to make network load balancer internal. Default is internet-facing  e.g., `--context isInternal=true`                                                                                                                                                                               |
+| enableRemoteStore (Optional)      | boolean | Boolean flag to enable Remote Store feature  e.g., `--context enableRemoteStore=true`. See [Enable Remote Store Feature](#enable-remote-store-feature) for more details.                                                                                                                         |
 
 
 
@@ -130,6 +132,19 @@ Below values are allowed:
 | ipv6            | all (::/0) or any ipv6 CIDR (eg: 2001:0db8:85a3:0000:0000:8a2e:0370:7334)  |
 | prefixList      | Prefix List id (eg: ab-12345)  |
 | securityGroupId | A security group ID (eg: sg-123456789)  |
+
+### Enable Remote Store Feature
+
+`Remote Store` feature provides an option to store indexed data in a remote durable data store. To enable this feature the user needs to register a snapshot repository (S3 or File System) which is used to store the index data.
+Apart from passing `enableRemoteStore` flag as `true` the user needs to be provide additional settings to `opensearch.yml`, the settings are:
+```
+1. opensearch.experimental.feature.remote_store.enabled: 'true'
+2. cluster.remote_store.enabled: 'true'
+3. opensearch.experimental.feature.segment_replication_experimental.enabled: 'true'
+4. cluster.indices.replication.strategy: SEGMENT
+```
+The above-mentioned settings need to be passed using `additionalConfig` parameter.
+Please note the `experimental` settings are only applicable till the feature is under development and will be removed when the feature becomes GA.
 
 ## Check logs
 

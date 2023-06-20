@@ -305,3 +305,92 @@ test('Test multi-node cluster with only data-nodes', () => {
     ],
   });
 });
+
+test('Test multi-node cluster with remote-store enabled', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      enableRemoteStore: true,
+    },
+  });
+
+  // WHEN
+  const testStack = new OsClusterEntrypoint(app, {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+  expect(testStack.stacks).toHaveLength(2);
+
+  const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.resourceCountIs('AWS::S3::Bucket', 1);
+  infraTemplate.resourceCountIs('AWS::S3::BucketPolicy', 1);
+  infraTemplate.resourceCountIs('AWS::Lambda::Function', 1);
+  infraTemplate.resourceCountIs('AWS::IAM::Role', 2);
+  infraTemplate.resourceCountIs('AWS::IAM::Policy', 1);
+  infraTemplate.hasResourceProperties('AWS::S3::Bucket', {
+    BucketName: 'opensearch-infra-stack',
+  });
+  infraTemplate.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: [
+        {
+          Action: [
+            's3:ListBucket',
+            's3:GetBucketLocation',
+            's3:ListBucketMultipartUploads',
+            's3:ListBucketVersions',
+            's3:GetObject',
+            's3:PutObject',
+            's3:DeleteObject',
+            's3:AbortMultipartUpload',
+            's3:ListMultipartUploadParts',
+          ],
+          Effect: 'Allow',
+          Resource: [
+            {
+              'Fn::GetAtt': [
+                'remotestoreopensearchinfrastack6A47755C',
+                'Arn',
+              ],
+            },
+            {
+              'Fn::Join': [
+                '',
+                [
+                  {
+                    'Fn::GetAtt': [
+                      'remotestoreopensearchinfrastack6A47755C',
+                      'Arn',
+                    ],
+                  },
+                  '/*',
+                ],
+              ],
+            },
+          ],
+        },
+        {
+          Action: [
+            'cloudformation:DescribeStackResource',
+            'cloudformation:SignalResource',
+          ],
+          Effect: 'Allow',
+          Resource: {
+            Ref: 'AWS::StackId',
+          },
+        },
+      ],
+    },
+  });
+});

@@ -182,6 +182,9 @@ export class OsClusterEntrypoint {
       const nlbScheme = `${scope.node.tryGetContext('isInternal')}`;
       const isInternal = nlbScheme === 'true';
 
+      const remoteStore = `${scope.node.tryGetContext('enableRemoteStore')}`;
+      const enableRemoteStore = remoteStore === 'true';
+
       const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
@@ -230,6 +233,7 @@ export class OsClusterEntrypoint {
         additionalConfig: ymlConfig,
         use50PercentHeap,
         isInternal,
+        enableRemoteStore,
         ...props,
       });
 
