@@ -34,6 +34,7 @@ import { dump, load } from 'js-yaml';
 import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
+import { RemoteStoreResources } from './remote-store-resources';
 
 export interface infraProps extends StackProps{
     readonly vpc: IVpc,
@@ -59,9 +60,12 @@ export interface infraProps extends StackProps{
     readonly mlEc2InstanceType: InstanceType,
     readonly use50PercentHeap: boolean,
     readonly isInternal: boolean,
+    readonly enableRemoteStore: boolean
 }
 
 export class InfraStack extends Stack {
+  private instanceRole: Role;
+
   constructor(scope: Stack, id: string, props: infraProps) {
     super(scope, id, props);
     let opensearchListener: NetworkListener;
@@ -79,12 +83,19 @@ export class InfraStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const instanceRole = new Role(this, 'instanceRole', {
+    this.instanceRole = new Role(this, 'instanceRole', {
       managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
         ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
         ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
       assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
     });
+
+    if (props.enableRemoteStore) {
+      // Remote Store needs an S3 bucket to be registered as snapshot repo
+      // Add scoped bucket policy to the instance role attached to the EC2
+      const remoteStoreObj = new RemoteStoreResources(this);
+      this.instanceRole.addToPolicy(remoteStoreObj.getRemoteStoreBucketPolicy());
+    }
 
     const singleNodeInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
@@ -126,7 +137,7 @@ export class InfraStack extends Stack {
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
@@ -174,7 +185,7 @@ export class InfraStack extends Stack {
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: managerAsgCapacity,
           minCapacity: managerAsgCapacity,
           desiredCapacity: managerAsgCapacity,
@@ -206,7 +217,7 @@ export class InfraStack extends Stack {
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         maxCapacity: 1,
         minCapacity: 1,
         desiredCapacity: 1,
@@ -234,7 +245,7 @@ export class InfraStack extends Stack {
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         maxCapacity: dataAsgCapacity,
         minCapacity: dataAsgCapacity,
         desiredCapacity: dataAsgCapacity,
@@ -264,7 +275,7 @@ export class InfraStack extends Stack {
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: props.clientNodeCount,
           minCapacity: props.clientNodeCount,
           desiredCapacity: props.clientNodeCount,
@@ -295,7 +306,7 @@ export class InfraStack extends Stack {
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: props.mlNodeCount,
           minCapacity: props.mlNodeCount,
           desiredCapacity: props.mlNodeCount,
@@ -445,14 +456,36 @@ export class InfraStack extends Stack {
       }
 
       if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install discovery-ec2', {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install discovery-ec2 --batch', {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
       } else {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install '
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
             + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
-            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip`, {
+            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip --batch`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+      }
+
+      if (props.enableRemoteStore) {
+        if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
+          cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
+            cwd: '/home/ec2-user',
+            ignoreErrors: false,
+          }));
+        } else {
+          cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
+              + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+              + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
+            cwd: '/home/ec2-user',
+            ignoreErrors: false,
+          }));
+        }
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
@@ -517,6 +550,35 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
+    }
+
+    if (props.enableRemoteStore) {
+      // Snapshot creation call should be done from one node to avoid any race condition, using seed node.
+      if (nodeType === 'seed-manager' || nodeType === 'seed-data') {
+        if (props.securityDisabled) {
+          // eslint-disable-next-line max-len
+          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; sleep 60; curl -XPUT "http://localhost:9200/_snapshot/${scope.stackName}-repo" -H 'Content-Type: application/json' -d'
+          {
+            "type": "s3",
+            "settings": {
+              "bucket": "${scope.stackName}",
+              "region": "${scope.region}",
+              "base_path": "remote-store"
+            }
+          }'`));
+        } else {
+          // eslint-disable-next-line max-len
+          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; sleep 60; curl -XPUT "https://localhost:9200/_snapshot/${scope.stackName}-repo" -ku admin:admin -H 'Content-Type: application/json' -d'
+          {
+            "type": "s3",
+            "settings": {
+              "bucket": "${scope.stackName}",
+              "region": "${scope.region}",
+              "base_path": "remote-store"
+            }
+          }'`));
+        }
+      }
     }
 
     // If OSD Url is present
