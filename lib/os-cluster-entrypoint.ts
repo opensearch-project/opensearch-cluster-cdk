@@ -11,10 +11,15 @@ import {
   AmazonLinuxCpuType, InstanceType, IVpc, SecurityGroup, Vpc,
 } from 'aws-cdk-lib/aws-ec2';
 import { dump } from 'js-yaml';
+import { EbsDeviceVolumeType } from 'aws-cdk-lib/aws-autoscaling';
 import { NetworkStack } from './networking/vpc-stack';
 import { InfraStack } from './infra/infra-stack';
 import {
-  x64Ec2InstanceType, arm64Ec2InstanceType, getX64InstanceTypes, getArm64InstanceTypes,
+  arm64Ec2InstanceType,
+  getArm64InstanceTypes,
+  getVolumeType,
+  getX64InstanceTypes,
+  x64Ec2InstanceType,
 } from './opensearch-config/node-config';
 
 enum cpuArchEnum{
@@ -55,6 +60,7 @@ export class OsClusterEntrypoint {
       let ymlConfig: string = 'undefined';
       let dataEc2InstanceType: InstanceType;
       let mlEc2InstanceType: InstanceType;
+      let volumeType: EbsDeviceVolumeType;
 
       const x64InstanceTypes: string[] = Object.keys(x64Ec2InstanceType);
       const arm64InstanceTypes: string[] = Object.keys(arm64Ec2InstanceType);
@@ -155,6 +161,14 @@ export class OsClusterEntrypoint {
         dataNodeStorage = parseInt(dataSize, 10);
       }
 
+      const inputVolumeType = `${scope.node.tryGetContext('storageVolumeType')}`;
+      if (inputVolumeType.toString() === 'undefined') {
+        // use gp2 volume by default
+        volumeType = EbsDeviceVolumeType.GP2;
+      } else {
+        volumeType = getVolumeType(inputVolumeType);
+      }
+
       const mlSize = `${scope.node.tryGetContext('mlNodeStorage')}`;
       if (mlSize === 'undefined') {
         mlNodeStorage = 100;
@@ -234,6 +248,7 @@ export class OsClusterEntrypoint {
         use50PercentHeap,
         isInternal,
         enableRemoteStore,
+        storageVolumeType: volumeType,
         ...props,
       });
 

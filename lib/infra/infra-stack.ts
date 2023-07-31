@@ -22,7 +22,7 @@ import {
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { AutoScalingGroup, BlockDeviceVolume, Signals } from 'aws-cdk-lib/aws-autoscaling';
+import { AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals } from 'aws-cdk-lib/aws-autoscaling';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import {
   CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
@@ -60,7 +60,8 @@ export interface infraProps extends StackProps{
     readonly mlEc2InstanceType: InstanceType,
     readonly use50PercentHeap: boolean,
     readonly isInternal: boolean,
-    readonly enableRemoteStore: boolean
+    readonly enableRemoteStore: boolean,
+    readonly storageVolumeType: EbsDeviceVolumeType
 }
 
 export class InfraStack extends Stack {
@@ -144,7 +145,7 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true }),
+          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props)),
         initOptions: {
@@ -195,7 +196,7 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'manager')),
           initOptions: {
@@ -228,7 +229,7 @@ export class InfraStack extends Stack {
         blockDevices: [{
           deviceName: '/dev/xvda',
           // eslint-disable-next-line max-len
-          volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50, { deleteOnTermination: true }) : BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true }),
+          volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }) : BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, seedConfig)),
         initOptions: {
@@ -255,7 +256,7 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true }),
+          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'data')),
         initOptions: {
@@ -285,7 +286,7 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'client')),
           initOptions: {
@@ -316,7 +317,7 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(props.mlNodeStorage, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(props.mlNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'ml')),
           initOptions: {
