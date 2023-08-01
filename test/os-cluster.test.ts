@@ -160,6 +160,7 @@ test('Test Resources with security enabled single-node cluster', () => {
       restrictServerAccessTo: 'pl-12345',
       dataNodeStorage: 200,
       isInternal: true,
+      storageVolumeType: 'gp3',
     },
   });
 
@@ -188,6 +189,7 @@ test('Test Resources with security enabled single-node cluster', () => {
       {
         Ebs: {
           VolumeSize: 200,
+          VolumeType: 'gp3',
         },
       },
     ],
@@ -227,7 +229,7 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,g5g.large,g5g.xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,r6g.4xlarge,r6g.8xlarge,g5g.large,g5g.xlarge');
   }
 });
 
@@ -245,7 +247,7 @@ test('Throw error on ec2 instance outside of enum list', () => {
       restrictServerAccessTo: 'pl-12345',
       dataNodeStorage: 200,
       isInternal: true,
-      dataInstanceType: 'r5.4xlarge',
+      dataInstanceType: 'r5.16xlarge',
     },
   });
   // WHEN
@@ -259,7 +261,7 @@ test('Throw error on ec2 instance outside of enum list', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,r5.2xlarge,g5.large,g5.xlarge,inf1.xlarge,inf1.2xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,r5.2xlarge,r5.4xlarge,r5.8xlarge,g5.large,g5.xlarge,i3.large,i3.xlarge,i3.2xlarge,i3.4xlarge,i3.8xlarge,inf1.xlarge,inf1.2xlarge');
   }
 });
 
@@ -300,6 +302,7 @@ test('Test multi-node cluster with only data-nodes', () => {
       {
         Ebs: {
           VolumeSize: 200,
+          VolumeType: 'gp2',
         },
       },
     ],
@@ -393,4 +396,37 @@ test('Test multi-node cluster with remote-store enabled', () => {
       ],
     },
   });
+});
+
+test('Throw error on unsupported ebs volume type', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'prefixList',
+      restrictServerAccessTo: 'pl-12345',
+      dataNodeStorage: 200,
+      isInternal: true,
+      dataInstanceType: 'r5.4xlarge',
+      storageVolumeType: 'io1',
+    },
+  });
+  // WHEN
+  try {
+    const testStack = new OsClusterEntrypoint(app, {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // eslint-disable-next-line max-len
+    expect(error.message).toEqual('Invalid volume type provided, please provide any one of the following: standard, gp2, gp3');
+  }
 });
