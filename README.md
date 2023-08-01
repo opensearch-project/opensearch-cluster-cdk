@@ -64,6 +64,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | use50PercentHeap (Optional)       | boolean | Boolean flag to use 50% of physical memory as heap. Default is 1GB.  e.g., `--context use50PercentHeap=true`                                                                                                                                                                                     |
 | isInternal (Optional)             | boolean | Boolean flag to make network load balancer internal. Default is internet-facing  e.g., `--context isInternal=true`                                                                                                                                                                               |
 | enableRemoteStore (Optional)      | boolean | Boolean flag to enable Remote Store feature  e.g., `--context enableRemoteStore=true`. See [Enable Remote Store Feature](#enable-remote-store-feature) for more details.                                                                                                                         |
+| storageVolumeType (Optional)      | string  | EBS volume type for all the nodes (data, ml, cluster manager), defaults to gp2. See `lib/opensearch-config/node-config.ts` for available options. E.g., `-c storageVolumeType=gp3`. For SSD based instance (i.e. i3 family), it is used for root volume configuration.                           |
 
 
 

@@ -164,7 +164,7 @@ export class OsClusterEntrypoint {
       const inputVolumeType = `${scope.node.tryGetContext('storageVolumeType')}`;
       if (inputVolumeType.toString() === 'undefined') {
         // use gp2 volume by default
-        volumeType = EbsDeviceVolumeType.GP2;
+        volumeType = getVolumeType('gp2');
       } else {
         volumeType = getVolumeType(inputVolumeType);
       }
