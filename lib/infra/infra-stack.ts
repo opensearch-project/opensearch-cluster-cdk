@@ -22,7 +22,9 @@ import {
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
 import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals } from 'aws-cdk-lib/aws-autoscaling';
+import {
+  AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
+} from 'aws-cdk-lib/aws-autoscaling';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import {
   CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
@@ -486,7 +488,13 @@ export class InfraStack extends Stack {
         }
 
         // eslint-disable-next-line max-len
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.translog.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
