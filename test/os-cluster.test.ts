@@ -71,6 +71,11 @@ test('Test Resources with security disabled multi-node default instance types', 
       Ref: 'managerNodeAsgInstanceProfile1415C2CF',
     },
   });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
+    },
+  });
 });
 
 test('Test Resources with security enabled multi-node with existing Vpc with user provided data and ml instance types', () => {
@@ -142,6 +147,11 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
     InstanceType: 'g5.xlarge',
     IamInstanceProfile: {
       Ref: 'mlNodeAsgInstanceProfileFF393D8C',
+    },
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
     },
   });
 });
@@ -306,6 +316,11 @@ test('Test multi-node cluster with only data-nodes', () => {
         },
       },
     ],
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
+    },
   });
 });
 

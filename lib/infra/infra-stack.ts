@@ -6,9 +6,17 @@ this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
 import {
+  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
+} from 'aws-cdk-lib';
+import {
+  AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
+} from 'aws-cdk-lib/aws-autoscaling';
+import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
   CloudFormationInit,
+  ISecurityGroup,
+  IVpc,
   InitCommand,
   InitElement,
   InitPackage,
@@ -16,24 +24,16 @@ import {
   InstanceClass,
   InstanceSize,
   InstanceType,
-  ISecurityGroup,
-  IVpc,
   MachineImage,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import {
-  AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
-} from 'aws-cdk-lib/aws-autoscaling';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import {
-  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
-} from 'aws-cdk-lib';
 import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import { join } from 'path';
+import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
-import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
@@ -153,6 +153,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
       });
       Tags.of(singleNodeInstance).add('role', 'client');
 
@@ -204,6 +205,7 @@ export class InfraStack extends Stack {
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
         Tags.of(managerNodeAsg).add('role', 'manager');
@@ -237,6 +239,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
         signals: Signals.waitForAll(),
       });
       Tags.of(seedNodeAsg).add('role', 'manager');
@@ -264,6 +267,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
         signals: Signals.waitForAll(),
       });
       Tags.of(dataNodeAsg).add('role', 'data');
@@ -294,6 +298,7 @@ export class InfraStack extends Stack {
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
         Tags.of(clientNodeAsg).add('cluster', scope.stackName);
@@ -325,6 +330,7 @@ export class InfraStack extends Stack {
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
 
