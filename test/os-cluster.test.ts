@@ -160,6 +160,7 @@ test('Test Resources with security enabled single-node cluster', () => {
       restrictServerAccessTo: 'pl-12345',
       dataNodeStorage: 200,
       isInternal: true,
+      dataInstanceType: 'r5.large',
       storageVolumeType: 'gp3',
     },
   });
@@ -185,6 +186,7 @@ test('Test Resources with security enabled single-node cluster', () => {
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
   infraTemplate.hasResourceProperties('AWS::EC2::Instance', {
+    InstanceType: 'r5.large',
     BlockDeviceMappings: [
       {
         Ebs: {

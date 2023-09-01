@@ -100,8 +100,14 @@ export class InfraStack extends Stack {
       this.instanceRole.addToPolicy(remoteStoreObj.getRemoteStoreBucketPolicy());
     }
 
-    const singleNodeInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
-      ? InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+    let singleNodeInstanceType: InstanceType;
+    if (props.dataEc2InstanceType) {
+      singleNodeInstanceType = props.dataEc2InstanceType;
+    } else if (props.cpuType === AmazonLinuxCpuType.X86_64) {
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) ;
+    } else {
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+    }
 
     const defaultInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
