@@ -104,7 +104,7 @@ export class InfraStack extends Stack {
     if (props.dataEc2InstanceType) {
       singleNodeInstanceType = props.dataEc2InstanceType;
     } else if (props.cpuType === AmazonLinuxCpuType.X86_64) {
-      singleNodeInstanceType = InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) ;
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE);
     } else {
       singleNodeInstanceType = InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
     }
@@ -500,13 +500,25 @@ export class InfraStack extends Stack {
         }
 
         // eslint-disable-next-line max-len
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
 
         // eslint-disable-next-line max-len
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.translog.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.repository.${scope.stackName}-repo.type: s3" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.repository.${scope.stackName}-repo.settings:\n  bucket : ${scope.stackName}\n  base_path: remote-store" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.translog.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
