@@ -71,6 +71,11 @@ test('Test Resources with security disabled multi-node default instance types', 
       Ref: 'managerNodeAsgInstanceProfile1415C2CF',
     },
   });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
+    },
+  });
 });
 
 test('Test Resources with security enabled multi-node with existing Vpc with user provided data and ml instance types', () => {
@@ -144,6 +149,11 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
       Ref: 'mlNodeAsgInstanceProfileFF393D8C',
     },
   });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
+    },
+  });
 });
 
 test('Test Resources with security enabled single-node cluster', () => {
@@ -160,6 +170,7 @@ test('Test Resources with security enabled single-node cluster', () => {
       restrictServerAccessTo: 'pl-12345',
       dataNodeStorage: 200,
       isInternal: true,
+      dataInstanceType: 'r5.large',
       storageVolumeType: 'gp3',
     },
   });
@@ -185,6 +196,7 @@ test('Test Resources with security enabled single-node cluster', () => {
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
   infraTemplate.hasResourceProperties('AWS::EC2::Instance', {
+    InstanceType: 'r5.large',
     BlockDeviceMappings: [
       {
         Ebs: {
@@ -306,6 +318,11 @@ test('Test multi-node cluster with only data-nodes', () => {
         },
       },
     ],
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
+    },
   });
 });
 

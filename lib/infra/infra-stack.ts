@@ -6,9 +6,17 @@ this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
 import {
+  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
+} from 'aws-cdk-lib';
+import {
+  AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
+} from 'aws-cdk-lib/aws-autoscaling';
+import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
   CloudFormationInit,
+  ISecurityGroup,
+  IVpc,
   InitCommand,
   InitElement,
   InitPackage,
@@ -16,24 +24,16 @@ import {
   InstanceClass,
   InstanceSize,
   InstanceType,
-  ISecurityGroup,
-  IVpc,
   MachineImage,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import {
-  AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
-} from 'aws-cdk-lib/aws-autoscaling';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import {
-  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
-} from 'aws-cdk-lib';
 import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import { join } from 'path';
+import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
-import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
@@ -100,8 +100,14 @@ export class InfraStack extends Stack {
       this.instanceRole.addToPolicy(remoteStoreObj.getRemoteStoreBucketPolicy());
     }
 
-    const singleNodeInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
-      ? InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+    let singleNodeInstanceType: InstanceType;
+    if (props.dataEc2InstanceType) {
+      singleNodeInstanceType = props.dataEc2InstanceType;
+    } else if (props.cpuType === AmazonLinuxCpuType.X86_64) {
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE);
+    } else {
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+    }
 
     const defaultInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
@@ -153,6 +159,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
       });
       Tags.of(singleNodeInstance).add('role', 'client');
 
@@ -204,6 +211,7 @@ export class InfraStack extends Stack {
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
         Tags.of(managerNodeAsg).add('role', 'manager');
@@ -237,6 +245,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
         signals: Signals.waitForAll(),
       });
       Tags.of(seedNodeAsg).add('role', 'manager');
@@ -264,6 +273,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
         signals: Signals.waitForAll(),
       });
       Tags.of(dataNodeAsg).add('role', 'data');
@@ -294,6 +304,7 @@ export class InfraStack extends Stack {
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
         Tags.of(clientNodeAsg).add('cluster', scope.stackName);
@@ -325,6 +336,7 @@ export class InfraStack extends Stack {
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
 
@@ -488,13 +500,31 @@ export class InfraStack extends Stack {
         }
 
         // eslint-disable-next-line max-len
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
 
         // eslint-disable-next-line max-len
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "cluster.remote_store.translog.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.repository.${scope.stackName}-repo.type: s3" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.repository.${scope.stackName}-repo.settings:\n  bucket : ${scope.stackName}\n  base_path: remote-store" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.translog.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.state.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
@@ -559,35 +589,6 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
-    }
-
-    if (props.enableRemoteStore) {
-      // Snapshot creation call should be done from one node to avoid any race condition, using seed node.
-      if (nodeType === 'seed-manager' || nodeType === 'seed-data') {
-        if (props.securityDisabled) {
-          // eslint-disable-next-line max-len
-          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; sleep 60; curl -XPUT "http://localhost:9200/_snapshot/${scope.stackName}-repo" -H 'Content-Type: application/json' -d'
-          {
-            "type": "s3",
-            "settings": {
-              "bucket": "${scope.stackName}",
-              "region": "${scope.region}",
-              "base_path": "remote-store"
-            }
-          }'`));
-        } else {
-          // eslint-disable-next-line max-len
-          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; sleep 60; curl -XPUT "https://localhost:9200/_snapshot/${scope.stackName}-repo" -ku admin:admin -H 'Content-Type: application/json' -d'
-          {
-            "type": "s3",
-            "settings": {
-              "bucket": "${scope.stackName}",
-              "region": "${scope.region}",
-              "base_path": "remote-store"
-            }
-          }'`));
-        }
-      }
     }
 
     // If OSD Url is present
