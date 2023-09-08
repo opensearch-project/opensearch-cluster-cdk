@@ -522,6 +522,12 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.state.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
       }
     }
 
@@ -583,35 +589,6 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
-    }
-
-    if (props.enableRemoteStore) {
-      // Snapshot creation call should be done from one node to avoid any race condition, using seed node.
-      if (nodeType === 'seed-manager' || nodeType === 'seed-data') {
-        if (props.securityDisabled) {
-          // eslint-disable-next-line max-len
-          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; sleep 60; curl -XPUT "http://localhost:9200/_snapshot/${scope.stackName}-repo" -H 'Content-Type: application/json' -d'
-          {
-            "type": "s3",
-            "settings": {
-              "bucket": "${scope.stackName}",
-              "region": "${scope.region}",
-              "base_path": "remote-store"
-            }
-          }'`));
-        } else {
-          // eslint-disable-next-line max-len
-          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; sleep 60; curl -XPUT "https://localhost:9200/_snapshot/${scope.stackName}-repo" -ku admin:admin -H 'Content-Type: application/json' -d'
-          {
-            "type": "s3",
-            "settings": {
-              "bucket": "${scope.stackName}",
-              "region": "${scope.region}",
-              "base_path": "remote-store"
-            }
-          }'`));
-        }
-      }
     }
 
     // If OSD Url is present
