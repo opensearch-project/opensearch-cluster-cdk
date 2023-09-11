@@ -533,7 +533,8 @@ export class InfraStack extends Stack {
 
     // add config to disable security if required
     if (props.securityDisabled && !props.minDistribution) {
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "plugins.security.disabled: true" >> config/opensearch.yml',
+      // eslint-disable-next-line max-len
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; if [ -d "/home/ec2-user/opensearch/plugins/opensearch-security" ]; then echo "plugins.security.disabled: true" >> config/opensearch.yml; fi',
         {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
