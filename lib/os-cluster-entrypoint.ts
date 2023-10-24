@@ -8,16 +8,36 @@ compatible open source license. */
 import { Construct } from 'constructs';
 import { Stack, StackProps } from 'aws-cdk-lib';
 import {
-  AmazonLinuxCpuType, IVpc, SecurityGroup, Vpc,
+  AmazonLinuxCpuType, InstanceType, IVpc, SecurityGroup, Vpc,
 } from 'aws-cdk-lib/aws-ec2';
 import { dump } from 'js-yaml';
 import { NetworkStack } from './networking/vpc-stack';
 import { InfraStack } from './infra/infra-stack';
+import {
+  arm64Ec2InstanceType,
+  getArm64InstanceTypes,
+  getVolumeType,
+  getX64InstanceTypes,
+  x64Ec2InstanceType,
+} from './opensearch-config/node-config';
 
 enum cpuArchEnum{
     X64='x64',
     ARM64='arm64'
 }
+
+const getInstanceType = (instanceType: string, arch: string) => {
+  if (arch === 'x64') {
+    if (instanceType !== 'undefined') {
+      return getX64InstanceTypes(instanceType);
+    }
+    return getX64InstanceTypes('r5.xlarge');
+  }
+  if (instanceType !== 'undefined') {
+    return getArm64InstanceTypes(instanceType);
+  }
+  return getArm64InstanceTypes('r6g.xlarge');
+};
 
 export class OsClusterEntrypoint {
     public stacks: Stack[] = [];
@@ -38,6 +58,8 @@ export class OsClusterEntrypoint {
       let mlNodeStorage: number;
       let ymlConfig: string = 'undefined';
 
+      const x64InstanceTypes: string[] = Object.keys(x64Ec2InstanceType);
+      const arm64InstanceTypes: string[] = Object.keys(arm64Ec2InstanceType);
       const vpcId: string = scope.node.tryGetContext('vpcId');
       const securityGroupId = scope.node.tryGetContext('securityGroupId');
       const cidrRange = scope.node.tryGetContext('cidr');
@@ -67,19 +89,24 @@ export class OsClusterEntrypoint {
       }
 
       const dashboardUrl = `${scope.node.tryGetContext('dashboardsUrl')}`;
-      if (dashboardUrl.toString() === 'undefined') {
-        throw new Error('dashboardsUrl parameter is required. Please provide the artifact url to download');
-      }
 
       const cpuArch = `${scope.node.tryGetContext('cpuArch')}`;
+
+      const dataInstanceType = `${scope.node.tryGetContext('dataInstanceType')}`;
+      const mlInstanceType = `${scope.node.tryGetContext('mlInstanceType')}`;
+
       if (cpuArch.toString() === 'undefined') {
         throw new Error('cpuArch parameter is required. The provided value should be either x64 or arm64, any other value is invalid');
         // @ts-ignore
       } else if (Object.values(cpuArchEnum).includes(cpuArch.toString())) {
         if (cpuArch.toString() === cpuArchEnum.X64) {
           instanceCpuType = AmazonLinuxCpuType.X86_64;
+          dataEc2InstanceType = getInstanceType(dataInstanceType, cpuArch.toString());
+          mlEc2InstanceType = getInstanceType(mlInstanceType, cpuArch.toString());
         } else {
           instanceCpuType = AmazonLinuxCpuType.ARM_64;
+          dataEc2InstanceType = getInstanceType(dataInstanceType, cpuArch.toString());
+          mlEc2InstanceType = getInstanceType(mlInstanceType, cpuArch.toString());
         }
       } else {
         throw new Error('Please provide a valid cpu architecture. The valid value can be either x64 or arm64');
@@ -123,6 +150,28 @@ export class OsClusterEntrypoint {
         mlCount = parseInt(mlNodeCount, 10);
       }
 
+      const dataSize = `${scope.node.tryGetContext('dataNodeStorage')}`;
+      if (dataSize === 'undefined') {
+        dataNodeStorage = 100;
+      } else {
+        dataNodeStorage = parseInt(dataSize, 10);
+      }
+
+      const inputVolumeType = `${scope.node.tryGetContext('storageVolumeType')}`;
+      if (inputVolumeType.toString() === 'undefined') {
+        // use gp2 volume by default
+        volumeType = getVolumeType('gp2');
+      } else {
+        volumeType = getVolumeType(inputVolumeType);
+      }
+
+      const mlSize = `${scope.node.tryGetContext('mlNodeStorage')}`;
+      if (mlSize === 'undefined') {
+        mlNodeStorage = 100;
+      } else {
+        mlNodeStorage = parseInt(mlSize, 10);
+      }
+
       const jvmSysProps = `${scope.node.tryGetContext('jvmSysProps')}`;
 
       const osConfig = `${scope.node.tryGetContext('additionalConfig')}`;
@@ -153,14 +202,22 @@ export class OsClusterEntrypoint {
 
       this.stacks.push(network);
 
+      if (suffix === 'undefined') {
+        infraStackName = 'opensearch-infra-stack';
+      } else {
+        infraStackName = `opensearch-infra-stack-${suffix}`;
+      }
+
       // @ts-ignore
-      const infraStack = new InfraStack(scope, 'OpenSearch-Infra-Stack', {
+      const infraStack = new InfraStack(scope, infraStackName, {
         vpc: this.vpc,
         securityDisabled: security,
         opensearchVersion: distVersion,
         clientNodeCount: clientCount,
         cpuArch,
         cpuType: instanceCpuType,
+        dataEc2InstanceType,
+        mlEc2InstanceType,
         dashboardsUrl: dashboardUrl,
         dataNodeCount: dataCount,
         distributionUrl,
@@ -171,6 +228,8 @@ export class OsClusterEntrypoint {
         // @ts-ignore
         securityGroup: this.securityGroup,
         singleNodeCluster: isSingleNode,
+        dataNodeStorage,
+        mlNodeStorage,
         jvmSysPropsString: jvmSysProps,
         additionalConfig: ymlConfig,
         ...props,

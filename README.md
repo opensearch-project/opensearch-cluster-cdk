@@ -5,6 +5,7 @@
   - [Required context parameters](#required-context-parameters)
   - [Interacting with OpenSearch cluster](#interacting-with-opensearch-cluster)
   - [Restricting Server Access](#restricting-server-access)
+  - [Enable Remote Store Feature](#enable-remote-store-feature)
 - [Check Logs](#check-logs)
 - [Access EC2 Instances](#access-ec2-instances)
 - [Port Mapping](#port-mapping)
@@ -58,6 +59,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | account (Optional)                | string  | User provided aws account                                                                                                                                                                                                                                                                        |
 | dataNodeStorage (Optional)        | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
 | mlNodeStorage (Optional)          | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
+
 * Before starting this step, ensure that your AWS CLI is correctly configured with access credentials.
 * Also ensure that you're running these commands in the current directory
 
@@ -71,7 +73,7 @@ npm install
 * You need to provide all the required context parameters in the command
 
 ```
-cdk bootstrap aws://<aws-account-number>/<aws-region> --context securityDisabled=true \
+cdk bootstrap aws://<aws-account-number>/<aws-region> --context securityDisabled=false \
 --context minDistribution=false --context distributionUrl='https://artifacts.opensearch.org/releases/bundle/opensearch/2.3.0/opensearch-2.3.0-linux-x64.tar.gz' \
 --context cpuArch='x64' --context singleNodeCluster=false --context dataNodeCount=3 \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
@@ -80,7 +82,7 @@ cdk bootstrap aws://<aws-account-number>/<aws-region> --context securityDisabled
 * Now you are ready to synthesize the CloudFormation templates:
 
 ```
-cdk synth "* " --context securityDisabled=true \
+cdk synth "* " --context securityDisabled=false \
 --context minDistribution=false --context distributionUrl='https://artifacts.opensearch.org/releases/bundle/opensearch/2.3.0/opensearch-2.3.0-linux-x64.tar.gz' \
 --context cpuArch='x64' --context singleNodeCluster=false --context dataNodeCount=3 \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
@@ -92,7 +94,7 @@ cdk synth "* " --context securityDisabled=true \
 Please note that as of now we only support instances backed by Amazon Linux-2 amis.
 
 ```
-cdk deploy "*" --context securityDisabled=true \
+cdk deploy "*" --context securityDisabled=false \
 --context minDistribution=false --context distributionUrl='https://artifacts.opensearch.org/releases/bundle/opensearch/2.3.0/opensearch-2.3.0-linux-x64.tar.gz' \
 --context cpuArch='x64' --context singleNodeCluster=false --context dataNodeCount=3 \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
@@ -123,6 +125,19 @@ Below values are allowed:
 | ipv6            | all (::/0) or any ipv6 CIDR (eg: 2001:0db8:85a3:0000:0000:8a2e:0370:7334)  |
 | prefixList      | Prefix List id (eg: ab-12345)  |
 | securityGroupId | A security group ID (eg: sg-123456789)  |
+
+### Enable Remote Store Feature
+
+`Remote Store` feature provides an option to store indexed data in a remote durable data store. To enable this feature the user needs to register a snapshot repository (S3 or File System) which is used to store the index data.
+Apart from passing `enableRemoteStore` flag as `true` the user needs to be provide additional settings to `opensearch.yml`, the settings are:
+```
+1. opensearch.experimental.feature.remote_store.enabled: 'true'
+2. cluster.remote_store.enabled: 'true'
+3. opensearch.experimental.feature.segment_replication_experimental.enabled: 'true'
+4. cluster.indices.replication.strategy: SEGMENT
+```
+The above-mentioned settings need to be passed using `additionalConfig` parameter.
+Please note the `experimental` settings are only applicable till the feature is under development and will be removed when the feature becomes GA.
 
 ## Check logs
 

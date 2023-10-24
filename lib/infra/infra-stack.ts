@@ -6,32 +6,37 @@ this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
 import {
+  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
+} from 'aws-cdk-lib';
+import {
+  AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
+} from 'aws-cdk-lib/aws-autoscaling';
+import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
   CloudFormationInit,
+  ISecurityGroup,
+  IVpc,
   InitCommand,
   InitElement,
   InitPackage,
+  Instance,
   InstanceClass,
   InstanceSize,
   InstanceType,
-  ISecurityGroup,
-  IVpc,
   MachineImage,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { AutoScalingGroup, BlockDeviceVolume, Signals } from 'aws-cdk-lib/aws-autoscaling';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import {
-  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
-} from 'aws-cdk-lib';
 import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import { join } from 'path';
+import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
+import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
+import { RemoteStoreResources } from './remote-store-resources';
 
 export interface infraProps extends StackProps{
     readonly vpc: IVpc,
@@ -56,6 +61,8 @@ export interface infraProps extends StackProps{
 }
 
 export class InfraStack extends Stack {
+  private instanceRole: Role;
+
   constructor(scope: Stack, id: string, props: infraProps) {
     super(scope, id, props);
     let opensearchListener: NetworkListener;
@@ -65,52 +72,106 @@ export class InfraStack extends Stack {
     let clientNodeAsg: AutoScalingGroup;
     let seedConfig: string;
     let hostType: InstanceType;
+    let singleNodeInstance: Instance;
 
     const clusterLogGroup = new LogGroup(this, 'opensearchLogGroup', {
-      logGroupName: 'opensearchLogGroup/opensearch.log',
+      logGroupName: `${id}LogGroup/opensearch.log`,
       retention: RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const instanceRole = new Role(this, 'instanceRole', {
+    this.instanceRole = new Role(this, 'instanceRole', {
       managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
         ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
         ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
       assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
     });
 
-    const ec2InstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
+    if (props.enableRemoteStore) {
+      // Remote Store needs an S3 bucket to be registered as snapshot repo
+      // Add scoped bucket policy to the instance role attached to the EC2
+      const remoteStoreObj = new RemoteStoreResources(this);
+      this.instanceRole.addToPolicy(remoteStoreObj.getRemoteStoreBucketPolicy());
+    }
+
+    let singleNodeInstanceType: InstanceType;
+    if (props.dataEc2InstanceType) {
+      singleNodeInstanceType = props.dataEc2InstanceType;
+    } else if (props.cpuType === AmazonLinuxCpuType.X86_64) {
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE);
+    } else {
+      singleNodeInstanceType = InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+    }
+
+    const defaultInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
+
+    const nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
+      vpc: props.vpc,
+      internetFacing: (!props.isInternal),
+      crossZoneEnabled: true,
+    });
+
+    if (!props.securityDisabled && !props.minDistribution) {
+      opensearchListener = nlb.addListener('opensearch', {
+        port: 443,
+        protocol: Protocol.TCP,
+      });
+    } else {
+      opensearchListener = nlb.addListener('opensearch', {
+        port: 80,
+        protocol: Protocol.TCP,
+      });
+    }
+
+    if (props.dashboardsUrl !== 'undefined') {
+      dashboardsListener = nlb.addListener('dashboards', {
+        port: 8443,
+        protocol: Protocol.TCP,
+      });
+    }
 
     if (props.singleNodeCluster) {
       console.log('Single node value is true, creating single node configurations');
-      const singleDataNodeAsg = new AutoScalingGroup(this, 'dataNodeAsg', {
+      singleNodeInstance = new Instance(this, 'single-node-instance', {
         vpc: props.vpc,
-        instanceType: ec2InstanceType,
+        instanceType: singleNodeInstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
-        maxCapacity: 1,
-        minCapacity: 1,
-        desiredCapacity: 1,
+        role: this.instanceRole,
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props)),
         initOptions: {
           ignoreFailures: false,
         },
-        signals: Signals.waitForAll(),
+        requireImdsv2: true,
       });
-      clientNodeAsg = singleDataNodeAsg;
-      Tags.of(singleDataNodeAsg).add('role', 'client');
+      Tags.of(singleNodeInstance).add('role', 'client');
+
+      opensearchListener.addTargets('single-node-target', {
+        port: 9200,
+        targets: [new InstanceTarget(singleNodeInstance)],
+      });
+
+      if (props.dashboardsUrl !== 'undefined') {
+        // @ts-ignore
+        dashboardsListener.addTargets('single-node-osd-target', {
+          port: 5601,
+          targets: [new InstanceTarget(singleNodeInstance)],
+        });
+      }
+      new CfnOutput(this, 'private-ip', {
+        value: singleNodeInstance.instancePrivateIp,
+      });
     } else {
       if (props.managerNodeCount > 0) {
         managerAsgCapacity = props.managerNodeCount - 1;
@@ -123,12 +184,12 @@ export class InfraStack extends Stack {
       if (managerAsgCapacity > 0) {
         const managerNodeAsg = new AutoScalingGroup(this, 'managerNodeAsg', {
           vpc: props.vpc,
-          instanceType: ec2InstanceType,
+          instanceType: defaultInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: managerAsgCapacity,
           minCapacity: managerAsgCapacity,
           desiredCapacity: managerAsgCapacity,
@@ -138,12 +199,13 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'manager')),
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
         Tags.of(managerNodeAsg).add('role', 'manager');
@@ -155,12 +217,12 @@ export class InfraStack extends Stack {
 
       const seedNodeAsg = new AutoScalingGroup(this, 'seedNodeAsg', {
         vpc: props.vpc,
-        instanceType: ec2InstanceType,
+        instanceType: (seedConfig === 'seed-manager') ? defaultInstanceType : props.dataEc2InstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         maxCapacity: 1,
         minCapacity: 1,
         desiredCapacity: 1,
@@ -170,24 +232,26 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+          // eslint-disable-next-line max-len
+          volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }) : BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, seedConfig)),
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
         signals: Signals.waitForAll(),
       });
       Tags.of(seedNodeAsg).add('role', 'manager');
 
       const dataNodeAsg = new AutoScalingGroup(this, 'dataNodeAsg', {
         vpc: props.vpc,
-        instanceType: ec2InstanceType,
+        instanceType: props.dataEc2InstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         maxCapacity: dataAsgCapacity,
         minCapacity: dataAsgCapacity,
         desiredCapacity: dataAsgCapacity,
@@ -197,12 +261,13 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+          volume: BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'data')),
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
         signals: Signals.waitForAll(),
       });
       Tags.of(dataNodeAsg).add('role', 'data');
@@ -212,12 +277,12 @@ export class InfraStack extends Stack {
       } else {
         clientNodeAsg = new AutoScalingGroup(this, 'clientNodeAsg', {
           vpc: props.vpc,
-          instanceType: ec2InstanceType,
+          instanceType: defaultInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: props.clientNodeCount,
           minCapacity: props.clientNodeCount,
           desiredCapacity: props.clientNodeCount,
@@ -227,12 +292,13 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'client')),
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
         Tags.of(clientNodeAsg).add('cluster', scope.stackName);
@@ -243,12 +309,12 @@ export class InfraStack extends Stack {
       if (props.mlNodeCount > 0) {
         const mlNodeAsg = new AutoScalingGroup(this, 'mlNodeAsg', {
           vpc: props.vpc,
-          instanceType: ec2InstanceType,
+          instanceType: props.mlEc2InstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: props.mlNodeCount,
           minCapacity: props.mlNodeCount,
           desiredCapacity: props.mlNodeCount,
@@ -258,59 +324,35 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+            volume: BlockDeviceVolume.ebs(props.mlNodeStorage, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
           }],
           init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, 'ml')),
           initOptions: {
             ignoreFailures: false,
           },
+          requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
 
         Tags.of(mlNodeAsg).add('role', 'ml-node');
       }
+
+      opensearchListener.addTargets('opensearchTarget', {
+        port: 9200,
+        targets: [clientNodeAsg],
+      });
+
+      if (props.dashboardsUrl !== 'undefined') {
+        // @ts-ignore
+        dashboardsListener.addTargets('dashboardsTarget', {
+          port: 5601,
+          targets: [clientNodeAsg],
+        });
+      }
     }
-
-    const alb = new NetworkLoadBalancer(this, 'publicNlb', {
-      vpc: props.vpc,
-      internetFacing: true,
-    });
-
-    if (!props.securityDisabled && !props.minDistribution) {
-      opensearchListener = alb.addListener('opensearch', {
-        port: 443,
-        protocol: Protocol.TCP,
-      });
-
-      dashboardsListener = alb.addListener('dashboards', {
-        port: 8443,
-        protocol: Protocol.TCP,
-      });
-    } else {
-      opensearchListener = alb.addListener('opensearch', {
-        port: 80,
-        protocol: Protocol.TCP,
-      });
-
-      dashboardsListener = alb.addListener('dashboards', {
-        port: 8443,
-        protocol: Protocol.TCP,
-      });
-    }
-
-    opensearchListener.addTargets('opensearchTarget', {
-      port: 9200,
-      targets: [clientNodeAsg],
-    });
-
-    dashboardsListener.addTargets('dashboardsTarget', {
-      port: 5601,
-      targets: [clientNodeAsg],
-    });
 
     new CfnOutput(this, 'loadbalancer-url', {
-      value: alb.loadBalancerDnsName,
-      exportName: 'Loadbalancer-URL',
+      value: nlb.loadBalancerDnsName,
     });
   }
 
@@ -333,7 +375,7 @@ export class InfraStack extends Stack {
               cpu: {
                 measurement: [
                   // eslint-disable-next-line max-len
-                  'usage_active', 'usage_guest', 'usage_guest_nice', 'usage_idle', 'usage_iowait', 'usage_irq', 'usage_nice', 'usage_softirq', 'usage_steal', 'usage_system', 'usage_user', 'time_active', 'time_iowait', 'time_system', 'time_user'
+                  'usage_active', 'usage_guest', 'usage_guest_nice', 'usage_idle', 'usage_iowait', 'usage_irq', 'usage_nice', 'usage_softirq', 'usage_steal', 'usage_system', 'usage_user', 'time_active', 'time_iowait', 'time_system', 'time_user',
                 ],
               },
               disk: {
@@ -384,19 +426,8 @@ export class InfraStack extends Stack {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }),
-      InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${props.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
-          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }),
       InitCommand.shellCommand('sleep 15'),
     ];
-
-    cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;echo "server.host: 0.0.0.0" >> config/opensearch_dashboards.yml',
-      {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }));
 
     // Add opensearch.yml config
     if (props.singleNodeCluster) {
@@ -414,6 +445,10 @@ export class InfraStack extends Stack {
       const baseConfig: any = load(readFileSync(`${configFileDir}/multi-node-base-config.yml`, 'utf-8'));
 
       baseConfig['cluster.name'] = `${scope.stackName}-${scope.account}-${scope.region}`;
+
+      // use discovery-ec2 to find manager nodes by querying IMDS
+      baseConfig['discovery.ec2.tag.Name'] = `${scope.stackName}/seedNodeAsg,${scope.stackName}/managerNodeAsg`;
+
       const commonConfig = dump(baseConfig).toString();
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "${commonConfig}" > config/opensearch.yml`,
         {
@@ -429,15 +464,61 @@ export class InfraStack extends Stack {
           }));
       }
 
-      if (props.distributionUrl.includes('ci.opensearch.org') || props.minDistribution) {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install '
-            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
-            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip`, {
+      if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install discovery-ec2 --batch', {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
       } else {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install discovery-ec2', {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
+            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip --batch`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+      }
+
+      if (props.enableRemoteStore) {
+        if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
+          cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
+            cwd: '/home/ec2-user',
+            ignoreErrors: false,
+          }));
+        } else {
+          cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
+              + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+              + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
+            cwd: '/home/ec2-user',
+            ignoreErrors: false,
+          }));
+        }
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.repository.${scope.stackName}-repo.type: s3" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.repository.${scope.stackName}-repo.settings:\n  bucket : ${scope.stackName}\n  base_path: remote-store\n  region: ${scope.region}" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.translog.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+        // eslint-disable-next-line max-len
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.state.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
@@ -446,20 +527,12 @@ export class InfraStack extends Stack {
 
     // add config to disable security if required
     if (props.securityDisabled && !props.minDistribution) {
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "plugins.security.disabled: true" >> config/opensearch.yml',
+      // eslint-disable-next-line max-len
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; if [ -d "/home/ec2-user/opensearch/plugins/opensearch-security" ]; then echo "plugins.security.disabled: true" >> config/opensearch.yml; fi',
         {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
-
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-          + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
-          + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
-          + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
-      {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }));
     }
 
     // Check if there are any jvm properties being passed
@@ -473,7 +546,6 @@ export class InfraStack extends Stack {
         ignoreErrors: false,
       }));
     }
-
     // @ts-ignore
     if (props.additionalConfig.toString() !== 'undefined') {
       // @ts-ignore
@@ -499,11 +571,37 @@ export class InfraStack extends Stack {
         }));
     }
 
-    cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-        + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
-      cwd: '/home/ec2-user',
-      ignoreErrors: false,
-    }));
+    // If OSD Url is present
+    if (props.dashboardsUrl !== 'undefined') {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${props.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
+          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;echo "server.host: 0.0.0.0" >> config/opensearch_dashboards.yml',
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+
+      if (props.securityDisabled && !props.minDistribution) {
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
+            + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
+            + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
+            + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+      }
+
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
+          + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+    }
 
     return cfnInitConfig;
   }
