@@ -106,6 +106,9 @@ test('Test Resources with security enabled multi-node with existing Vpc', () => 
       },
     ],
   });
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+    Scheme: 'internet-facing',
+  });
 });
 
 test('Test Resources with security enabled single-node cluster', () => {
@@ -121,6 +124,7 @@ test('Test Resources with security enabled single-node cluster', () => {
       serverAccessType: 'prefixList',
       restrictServerAccessTo: 'pl-12345',
       dataNodeStorage: 200,
+      isInternal: true,
     },
   });
 
@@ -152,5 +156,8 @@ test('Test Resources with security enabled single-node cluster', () => {
         },
       },
     ],
+  });
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+    Scheme: 'internal',
   });
 });

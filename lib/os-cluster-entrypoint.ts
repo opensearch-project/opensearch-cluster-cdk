@@ -151,6 +151,9 @@ export class OsClusterEntrypoint {
       const use50heap = `${scope.node.tryGetContext('use50PercentHeap')}`;
       const use50PercentHeap = use50heap === 'true';
 
+      const nlbScheme = `${scope.node.tryGetContext('isInternal')}`;
+      const isInternal = nlbScheme === 'true';
+
       const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
@@ -196,6 +199,7 @@ export class OsClusterEntrypoint {
         jvmSysPropsString: jvmSysProps,
         additionalConfig: ymlConfig,
         use50PercentHeap,
+        isInternal,
         ...props,
       });
 
