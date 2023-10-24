@@ -55,6 +55,8 @@ export interface infraProps extends StackProps{
     readonly mlNodeStorage: number,
     readonly jvmSysPropsString?: string,
     readonly additionalConfig?: string,
+    readonly dataEc2InstanceType: InstanceType,
+    readonly mlEc2InstanceType: InstanceType,
     readonly use50PercentHeap: boolean,
     readonly isInternal: boolean,
 }
@@ -84,7 +86,10 @@ export class InfraStack extends Stack {
       assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
     });
 
-    const ec2InstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
+    const singleNodeInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
+      ? InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
+
+    const defaultInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
 
     const nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
@@ -116,7 +121,7 @@ export class InfraStack extends Stack {
       console.log('Single node value is true, creating single node configurations');
       singleNodeInstance = new Instance(this, 'single-node-instance', {
         vpc: props.vpc,
-        instanceType: ec2InstanceType,
+        instanceType: singleNodeInstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
@@ -164,7 +169,7 @@ export class InfraStack extends Stack {
       if (managerAsgCapacity > 0) {
         const managerNodeAsg = new AutoScalingGroup(this, 'managerNodeAsg', {
           vpc: props.vpc,
-          instanceType: ec2InstanceType,
+          instanceType: defaultInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
@@ -196,7 +201,7 @@ export class InfraStack extends Stack {
 
       const seedNodeAsg = new AutoScalingGroup(this, 'seedNodeAsg', {
         vpc: props.vpc,
-        instanceType: ec2InstanceType,
+        instanceType: (seedConfig === 'seed-manager') ? defaultInstanceType : props.dataEc2InstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
@@ -211,7 +216,8 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true }),
+          // eslint-disable-next-line max-len
+          volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50, { deleteOnTermination: true }) : BlockDeviceVolume.ebs(props.dataNodeStorage, { deleteOnTermination: true }),
         }],
         init: CloudFormationInit.fromElements(...InfraStack.getCfnInitElement(this, clusterLogGroup, props, seedConfig)),
         initOptions: {
@@ -223,7 +229,7 @@ export class InfraStack extends Stack {
 
       const dataNodeAsg = new AutoScalingGroup(this, 'dataNodeAsg', {
         vpc: props.vpc,
-        instanceType: ec2InstanceType,
+        instanceType: props.dataEc2InstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
@@ -253,7 +259,7 @@ export class InfraStack extends Stack {
       } else {
         clientNodeAsg = new AutoScalingGroup(this, 'clientNodeAsg', {
           vpc: props.vpc,
-          instanceType: ec2InstanceType,
+          instanceType: defaultInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
@@ -284,7 +290,7 @@ export class InfraStack extends Stack {
       if (props.mlNodeCount > 0) {
         const mlNodeAsg = new AutoScalingGroup(this, 'mlNodeAsg', {
           vpc: props.vpc,
-          instanceType: ec2InstanceType,
+          instanceType: props.mlEc2InstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
