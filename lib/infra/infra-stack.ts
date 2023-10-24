@@ -425,6 +425,10 @@ export class InfraStack extends Stack {
       const baseConfig: any = load(readFileSync(`${configFileDir}/multi-node-base-config.yml`, 'utf-8'));
 
       baseConfig['cluster.name'] = `${scope.stackName}-${scope.account}-${scope.region}`;
+
+      // use discovery-ec2 to find manager nodes by querying IMDS
+      baseConfig['discovery.ec2.tag.Name'] = `${scope.stackName}/seedNodeAsg,${scope.stackName}/managerNodeAsg`;
+
       const commonConfig = dump(baseConfig).toString();
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "${commonConfig}" > config/opensearch.yml`,
         {
