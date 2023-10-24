@@ -58,7 +58,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | account (Optional)                | string  | User provided aws account                                                                                                                                                                                                                                                                        |
 | dataNodeStorage (Optional)        | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
 | mlNodeStorage (Optional)          | string  | User provided ebs block storage size, defaults to 100Gb                                                                                                                                                                                                                                          |
-
+| use50PercentHeap (Optional)       | boolean | Boolean flag to use 50% of physical memory as heap. Default is 1GB.  e.g., `--context use50PercentHeap=true`                                                                                                                                                                                                     |
 
 * Before starting this step, ensure that your AWS CLI is correctly configured with access credentials.
 * Also ensure that you're running these commands in the current directory
