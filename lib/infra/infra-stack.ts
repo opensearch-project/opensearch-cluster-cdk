@@ -29,7 +29,9 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import {
+  ManagedPolicy, Role, IRole, ServicePrincipal,
+} from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
@@ -38,7 +40,7 @@ import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
 
-export interface infraProps extends StackProps{
+export interface infraProps extends StackProps {
     readonly vpc: IVpc,
     readonly securityGroup: ISecurityGroup,
     readonly opensearchVersion: string,
@@ -63,7 +65,8 @@ export interface infraProps extends StackProps{
     readonly use50PercentHeap: boolean,
     readonly isInternal: boolean,
     readonly enableRemoteStore: boolean,
-    readonly storageVolumeType: EbsDeviceVolumeType
+    readonly storageVolumeType: EbsDeviceVolumeType,
+    readonly customRoleArn: string
 }
 
 export class InfraStack extends Stack {
@@ -86,12 +89,16 @@ export class InfraStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    this.instanceRole = new Role(this, 'instanceRole', {
-      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
-        ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
-        ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
-      assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
-    });
+    if (props.customRoleArn === 'undefined') {
+      this.instanceRole = new Role(this, 'instanceRole', {
+        managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
+          ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
+          ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
+        assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
+      });
+    } else {
+      this.instanceRole = <Role>Role.fromRoleArn(this, 'custom-role-arn', `${props.customRoleArn}`);
+    }
 
     if (props.enableRemoteStore) {
       // Remote Store needs an S3 bucket to be registered as snapshot repo
@@ -475,6 +482,10 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
       } else {
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
             + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
@@ -482,23 +493,15 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
+            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+            + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
       }
 
       if (props.enableRemoteStore) {
-        if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
-          cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
-            cwd: '/home/ec2-user',
-            ignoreErrors: false,
-          }));
-        } else {
-          cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
-              + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
-              + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
-            cwd: '/home/ec2-user',
-            ignoreErrors: false,
-          }));
-        }
-
         // eslint-disable-next-line max-len
         cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "node.attr.remote_store.segment.repository: ${scope.stackName}-repo" >> config/opensearch.yml`, {
           cwd: '/home/ec2-user',
