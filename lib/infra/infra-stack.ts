@@ -21,8 +21,10 @@ import {
   MachineImage,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import { ManagedPolicy, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { AutoScalingGroup, BlockDeviceVolume, Signals } from 'aws-cdk-lib/aws-autoscaling';
+import {
+  ManagedPolicy, Role, IRole, ServicePrincipal,
+} from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import {
   CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
@@ -35,7 +37,7 @@ import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
 
-export interface infraProps extends StackProps{
+export interface infraProps extends StackProps {
     readonly vpc: IVpc,
     readonly securityGroup: ISecurityGroup,
     readonly opensearchVersion: string,
@@ -59,9 +61,12 @@ export interface infraProps extends StackProps{
     readonly mlEc2InstanceType: InstanceType,
     readonly use50PercentHeap: boolean,
     readonly isInternal: boolean,
+    readonly customRoleArn: string
 }
 
 export class InfraStack extends Stack {
+  private instanceRole: Role;
+
   constructor(scope: Stack, id: string, props: infraProps) {
     super(scope, id, props);
     let opensearchListener: NetworkListener;
@@ -79,12 +84,16 @@ export class InfraStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    const instanceRole = new Role(this, 'instanceRole', {
-      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
-        ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
-        ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
-      assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
-    });
+    if (props.customRoleArn === 'undefined') {
+      this.instanceRole = new Role(this, 'instanceRole', {
+        managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
+          ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
+          ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
+        assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
+      });
+    } else {
+      this.instanceRole = <Role>Role.fromRoleArn(this, 'custom-role-arn', `${props.customRoleArn}`);
+    }
 
     const singleNodeInstanceType = (props.cpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.R6G, InstanceSize.XLARGE);
@@ -126,7 +135,7 @@ export class InfraStack extends Stack {
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
@@ -175,7 +184,7 @@ export class InfraStack extends Stack {
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: managerAsgCapacity,
           minCapacity: managerAsgCapacity,
           desiredCapacity: managerAsgCapacity,
@@ -208,7 +217,7 @@ export class InfraStack extends Stack {
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         maxCapacity: 1,
         minCapacity: 1,
         desiredCapacity: 1,
@@ -237,7 +246,7 @@ export class InfraStack extends Stack {
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
           cpuType: props.cpuType,
         }),
-        role: instanceRole,
+        role: this.instanceRole,
         maxCapacity: dataAsgCapacity,
         minCapacity: dataAsgCapacity,
         desiredCapacity: dataAsgCapacity,
@@ -268,7 +277,7 @@ export class InfraStack extends Stack {
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: props.clientNodeCount,
           minCapacity: props.clientNodeCount,
           desiredCapacity: props.clientNodeCount,
@@ -300,7 +309,7 @@ export class InfraStack extends Stack {
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
             cpuType: props.cpuType,
           }),
-          role: instanceRole,
+          role: this.instanceRole,
           maxCapacity: props.mlNodeCount,
           minCapacity: props.mlNodeCount,
           desiredCapacity: props.mlNodeCount,
@@ -455,14 +464,25 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
       } else {
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install '
             + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
-            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip`, {
+            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${props.opensearchVersion}.zip --batch`, {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
+        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
+            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+            + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
       }
+
     }
 
     // add config to disable security if required

@@ -182,6 +182,8 @@ export class OsClusterEntrypoint {
       const nlbScheme = `${scope.node.tryGetContext('isInternal')}`;
       const isInternal = nlbScheme === 'true';
 
+      const customRoleArn = `${scope.node.tryGetContext('customRoleArn')}`;
+
       const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
@@ -230,6 +232,7 @@ export class OsClusterEntrypoint {
         additionalConfig: ymlConfig,
         use50PercentHeap,
         isInternal,
+        customRoleArn,
         ...props,
       });
 
