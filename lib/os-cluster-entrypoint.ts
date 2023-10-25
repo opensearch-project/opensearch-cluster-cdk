@@ -199,6 +199,8 @@ export class OsClusterEntrypoint {
       const remoteStore = `${scope.node.tryGetContext('enableRemoteStore')}`;
       const enableRemoteStore = remoteStore === 'true';
 
+      const customRoleArn = `${scope.node.tryGetContext('customRoleArn')}`;
+
       const network = new NetworkStack(scope, 'opensearch-network-stack', {
         cidrBlock: cidrRange,
         maxAzs: 3,
@@ -249,6 +251,7 @@ export class OsClusterEntrypoint {
         isInternal,
         enableRemoteStore,
         storageVolumeType: volumeType,
+        customRoleArn,
         ...props,
       });
 

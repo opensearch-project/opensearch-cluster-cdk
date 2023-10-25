@@ -447,3 +447,36 @@ test('Throw error on unsupported ebs volume type', () => {
     expect(error.message).toEqual('Invalid volume type provided, please provide any one of the following: standard, gp2, gp3');
   }
 });
+
+test('Test multi-node cluster with custom IAM Role', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
+    },
+  });
+
+  // WHEN
+  const testStack = new OsClusterEntrypoint(app, {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+  expect(testStack.stacks).toHaveLength(2);
+
+  const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.resourceCountIs('AWS::IAM::Role', 0);
+  infraTemplate.hasResourceProperties('AWS::IAM::InstanceProfile', {
+    Roles: ['customRoleName'],
+  });
+});
