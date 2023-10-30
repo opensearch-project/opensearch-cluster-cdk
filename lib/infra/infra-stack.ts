@@ -139,6 +139,7 @@ export class InfraStack extends Stack {
         initOptions: {
           ignoreFailures: false,
         },
+        requireImdsv2: true,
       });
       Tags.of(singleNodeInstance).add('role', 'client');
 
@@ -191,6 +192,7 @@ export class InfraStack extends Stack {
             ignoreFailures: false,
           },
           signals: Signals.waitForAll(),
+          requireImdsv2: true,
         });
         Tags.of(managerNodeAsg).add('role', 'manager');
 
@@ -224,6 +226,7 @@ export class InfraStack extends Stack {
           ignoreFailures: false,
         },
         signals: Signals.waitForAll(),
+        requireImdsv2: true,
       });
       Tags.of(seedNodeAsg).add('role', 'manager');
 
@@ -251,6 +254,7 @@ export class InfraStack extends Stack {
           ignoreFailures: false,
         },
         signals: Signals.waitForAll(),
+        requireImdsv2: true,
       });
       Tags.of(dataNodeAsg).add('role', 'data');
 
@@ -281,6 +285,7 @@ export class InfraStack extends Stack {
             ignoreFailures: false,
           },
           signals: Signals.waitForAll(),
+          requireImdsv2: true,
         });
         Tags.of(clientNodeAsg).add('cluster', scope.stackName);
       }
@@ -312,6 +317,7 @@ export class InfraStack extends Stack {
             ignoreFailures: false,
           },
           signals: Signals.waitForAll(),
+          requireImdsv2: true,
         });
 
         Tags.of(mlNodeAsg).add('role', 'ml-node');
@@ -506,7 +512,7 @@ export class InfraStack extends Stack {
 
     // final run command based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user cp config/opensearch.yml config/elasticsearch.yml; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
