@@ -5,14 +5,14 @@ The OpenSearch Contributors require contributions made to
 this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
-import { Construct } from 'constructs';
+import { Stack, StackProps } from 'aws-cdk-lib';
 import {
   IPeer,
   ISecurityGroup,
   IVpc,
   Peer, Port, SecurityGroup, SubnetType, Vpc,
 } from 'aws-cdk-lib/aws-ec2';
-import { App, Stack, StackProps } from 'aws-cdk-lib';
+import { Construct } from 'constructs';
 
 export interface vpcProps extends StackProps{
     cidrBlock: string,
@@ -32,7 +32,7 @@ export class NetworkStack extends Stack {
     let serverAccess: IPeer;
     super(scope, id, props);
     if (props.vpcId === undefined) {
-      console.log('No VPC Provided, creating new');
+      console.log('No VPC-Id Provided, a new VPC will be created');
       this.vpc = new Vpc(this, 'opensearchClusterVpc', {
         cidr: (props.cidrBlock !== undefined) ? props.cidrBlock : '10.0.0.0/16',
         maxAzs: props.maxAzs,

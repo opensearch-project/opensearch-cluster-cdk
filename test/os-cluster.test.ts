@@ -23,6 +23,7 @@ test('Test Resources with security disabled multi-node default instance types', 
       serverAccessType: 'ipv4',
       restrictServerAccessTo: 'all',
       additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
+      additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
     },
   });
 
@@ -30,6 +31,8 @@ test('Test Resources with security disabled multi-node default instance types', 
   const securityDisabledStack = new OsClusterEntrypoint(app, {
     env: { account: 'test-account', region: 'us-east-1' },
   });
+
+  // THEN
   expect(securityDisabledStack.stacks).toHaveLength(2);
   const networkStack = securityDisabledStack.stacks.filter((s) => s.stackName === 'opensearch-network-stack')[0];
   const networkTemplate = Template.fromStack(networkStack);
@@ -285,6 +288,8 @@ test('Test multi-node cluster with only data-nodes', () => {
   const testStack = new OsClusterEntrypoint(app, {
     env: { account: 'test-account', region: 'us-east-1' },
   });
+
+  // THEN
   expect(testStack.stacks).toHaveLength(2);
 
   const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
@@ -329,6 +334,8 @@ test('Test multi-node cluster with custom IAM Role', () => {
   const testStack = new OsClusterEntrypoint(app, {
     env: { account: 'test-account', region: 'us-east-1' },
   });
+
+  // THEN
   expect(testStack.stacks).toHaveLength(2);
 
   const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];

@@ -6,9 +6,16 @@ this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
 import {
+  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
+} from 'aws-cdk-lib';
+import { AutoScalingGroup, BlockDeviceVolume, Signals } from 'aws-cdk-lib/aws-autoscaling';
+import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
   CloudFormationInit,
+  EbsDeviceVolumeType,
+  ISecurityGroup,
+  IVpc,
   InitCommand,
   InitElement,
   InitPackage,
@@ -16,52 +23,50 @@ import {
   InstanceClass,
   InstanceSize,
   InstanceType,
-  ISecurityGroup,
-  IVpc,
   MachineImage,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import { AutoScalingGroup, BlockDeviceVolume, Signals } from 'aws-cdk-lib/aws-autoscaling';
+import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import {
-  ManagedPolicy, Role, IRole, ServicePrincipal,
+  ManagedPolicy, Role,
+  ServicePrincipal,
 } from 'aws-cdk-lib/aws-iam';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import {
-  CfnOutput, RemovalPolicy, Stack, StackProps, Tags,
-} from 'aws-cdk-lib';
-import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import { join } from 'path';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
-import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
+import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { nodeConfig } from '../opensearch-config/node-config';
 
 export interface infraProps extends StackProps {
-    readonly vpc: IVpc,
-    readonly securityGroup: ISecurityGroup,
-    readonly opensearchVersion: string,
-    readonly cpuArch: string,
-    readonly cpuType: AmazonLinuxCpuType,
-    readonly securityDisabled: boolean,
-    readonly minDistribution: boolean,
-    readonly distributionUrl: string,
-    readonly dashboardsUrl: string,
-    readonly singleNodeCluster: boolean,
-    readonly managerNodeCount: number,
-    readonly dataNodeCount: number,
-    readonly ingestNodeCount: number,
-    readonly clientNodeCount: number,
-    readonly mlNodeCount: number,
-    readonly dataNodeStorage: number,
-    readonly mlNodeStorage: number,
-    readonly jvmSysPropsString?: string,
-    readonly additionalConfig?: string,
-    readonly dataEc2InstanceType: InstanceType,
-    readonly mlEc2InstanceType: InstanceType,
-    readonly use50PercentHeap: boolean,
-    readonly isInternal: boolean,
-    readonly customRoleArn: string
+  readonly vpc: IVpc,
+  readonly securityGroup: ISecurityGroup,
+  readonly opensearchVersion: string,
+  readonly cpuArch: string,
+  readonly cpuType: AmazonLinuxCpuType,
+  readonly securityDisabled: boolean,
+  readonly minDistribution: boolean,
+  readonly distributionUrl: string,
+  readonly dashboardsUrl: string,
+  readonly singleNodeCluster: boolean,
+  readonly managerNodeCount: number,
+  readonly dataNodeCount: number,
+  readonly ingestNodeCount: number,
+  readonly clientNodeCount: number,
+  readonly mlNodeCount: number,
+  readonly dataNodeStorage: number,
+  readonly mlNodeStorage: number,
+  readonly jvmSysPropsString?: string,
+  readonly additionalConfig?: string,
+  readonly additionalOsdConfig?: string,
+  readonly dataEc2InstanceType: InstanceType,
+  readonly mlEc2InstanceType: InstanceType,
+  readonly use50PercentHeap: boolean,
+  readonly isInternal: boolean,
+  readonly enableRemoteStore: boolean,
+  readonly storageVolumeType: EbsDeviceVolumeType,
+  readonly customRoleArn: string
 }
 
 export class InfraStack extends Stack {
@@ -355,7 +360,7 @@ export class InfraStack extends Stack {
     const configFileDir = join(__dirname, '../opensearch-config');
     let opensearchConfig: string;
 
-    const cfnInitConfig : InitElement[] = [
+    const cfnInitConfig: InitElement[] = [
       InitPackage.yum('amazon-cloudwatch-agent'),
       CloudwatchAgent.asInitFile('/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json',
         {
@@ -417,7 +422,7 @@ export class InfraStack extends Stack {
       InitCommand.shellCommand('set -ex;/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s'),
       InitCommand.shellCommand('set -ex; sudo echo "vm.max_map_count=262144" >> /etc/sysctl.conf;sudo sysctl -p'),
       InitCommand.shellCommand(`set -ex;mkdir opensearch; curl -L ${props.distributionUrl} -o opensearch.tar.gz;`
-                + 'tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;', {
+        + 'tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;', {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }),
@@ -430,7 +435,6 @@ export class InfraStack extends Stack {
 
       fileContent['cluster.name'] = `${scope.stackName}-${scope.account}-${scope.region}`;
 
-      console.log(dump(fileContent).toString());
       opensearchConfig = dump(fileContent).toString();
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "${opensearchConfig}" > config/opensearch.yml`,
         {
@@ -476,8 +480,8 @@ export class InfraStack extends Stack {
           ignoreErrors: false,
         }));
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
-            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
-            + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
+          + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
+          + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
@@ -499,7 +503,7 @@ export class InfraStack extends Stack {
     if (props.jvmSysPropsString.toString() !== 'undefined') {
       // @ts-ignore
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; jvmSysPropsList=$(echo "${props.jvmSysPropsString.toString()}" | tr ',' '\\n');`
-      + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
+        + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
       {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
@@ -530,7 +534,7 @@ export class InfraStack extends Stack {
         }));
     }
 
-    // final run command based on whether the distribution type is min or bundle
+    // // Startinng OpenSearch based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user cp config/opensearch.yml config/elasticsearch.yml; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {
@@ -545,10 +549,10 @@ export class InfraStack extends Stack {
         }));
     }
 
-    // If OSD Url is present
+    // If OpenSearch-Dashboards URL is present
     if (props.dashboardsUrl !== 'undefined') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${props.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
-          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
+        + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }));
@@ -561,17 +565,28 @@ export class InfraStack extends Stack {
 
       if (props.securityDisabled && !props.minDistribution) {
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-            + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
-            + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
-            + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
+          + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
+          + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
+          + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
         {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
       }
 
+      // @ts-ignore
+      if (props.additionalOsdConfig.toString() !== 'undefined') {
+        // @ts-ignore
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards; echo "${props.additionalOsdConfig}">>config/opensearch_dashboards.yml`,
+          {
+            cwd: '/home/ec2-user',
+            ignoreErrors: false,
+          }));
+      }
+
+      // Startinng OpenSearch-Dashboards
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-          + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
+        + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
         cwd: '/home/ec2-user',
         ignoreErrors: false,
       }));
