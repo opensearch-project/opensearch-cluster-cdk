@@ -5,15 +5,18 @@ The OpenSearch Contributors require contributions made to
 this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
-import { Construct } from 'constructs';
 import { Stack, StackProps } from 'aws-cdk-lib';
-import {
-  AmazonLinuxCpuType, InstanceType, IVpc, SecurityGroup, Vpc,
-} from 'aws-cdk-lib/aws-ec2';
-import { dump } from 'js-yaml';
 import { EbsDeviceVolumeType } from 'aws-cdk-lib/aws-autoscaling';
-import { NetworkStack } from './networking/vpc-stack';
+import {
+  AmazonLinuxCpuType,
+  IVpc,
+  InstanceType,
+  SecurityGroup,
+} from 'aws-cdk-lib/aws-ec2';
+import { Construct } from 'constructs';
+import { dump } from 'js-yaml';
 import { InfraStack } from './infra/infra-stack';
+import { NetworkStack } from './networking/vpc-stack';
 import {
   arm64Ec2InstanceType,
   getArm64InstanceTypes,
@@ -58,6 +61,7 @@ export class OsClusterEntrypoint {
       let dataNodeStorage: number;
       let mlNodeStorage: number;
       let ymlConfig: string = 'undefined';
+      let osdYmlConfig: string = 'undefined';
       let dataEc2InstanceType: InstanceType;
       let mlEc2InstanceType: InstanceType;
       let volumeType: EbsDeviceVolumeType;
@@ -188,6 +192,16 @@ export class OsClusterEntrypoint {
         }
       }
 
+      const osdConfig = `${scope.node.tryGetContext('additionalOsdConfig')}`;
+      if (osdConfig.toString() !== 'undefined') {
+        try {
+          const jsonObj = JSON.parse(osdConfig);
+          osdYmlConfig = dump(jsonObj);
+        } catch (e) {
+          throw new Error(`Encountered following error while parsing additionalOsdConfig json parameter: ${e}`);
+        }
+      }
+
       const suffix = `${scope.node.tryGetContext('suffix')}`;
 
       const use50heap = `${scope.node.tryGetContext('use50PercentHeap')}`;
@@ -247,6 +261,7 @@ export class OsClusterEntrypoint {
         mlNodeStorage,
         jvmSysPropsString: jvmSysProps,
         additionalConfig: ymlConfig,
+        additionalOsdConfig: osdYmlConfig,
         use50PercentHeap,
         isInternal,
         enableRemoteStore,
