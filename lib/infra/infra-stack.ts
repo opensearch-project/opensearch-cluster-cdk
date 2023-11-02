@@ -13,7 +13,6 @@ import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
   CloudFormationInit,
-  EbsDeviceVolumeType,
   ISecurityGroup,
   IVpc,
   InitCommand,
@@ -64,8 +63,6 @@ export interface infraProps extends StackProps {
   readonly mlEc2InstanceType: InstanceType,
   readonly use50PercentHeap: boolean,
   readonly isInternal: boolean,
-  readonly enableRemoteStore: boolean,
-  readonly storageVolumeType: EbsDeviceVolumeType,
   readonly customRoleArn: string
 }
 
@@ -486,7 +483,6 @@ export class InfraStack extends Stack {
           ignoreErrors: false,
         }));
       }
-
     }
 
     // add config to disable security if required
@@ -536,6 +532,7 @@ export class InfraStack extends Stack {
 
     // // Startinng OpenSearch based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
+      // eslint-disable-next-line max-len
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user cp config/opensearch.yml config/elasticsearch.yml; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {
           cwd: '/home/ec2-user',
