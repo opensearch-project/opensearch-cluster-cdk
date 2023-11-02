@@ -87,7 +87,7 @@ cdk bootstrap aws://<aws-account-number>/<aws-region> --context securityDisabled
 * Now you are ready to synthesize the CloudFormation templates:
 
 ```
-cdk synth "* " --context securityDisabled=true \
+cdk synth "*" --context securityDisabled=true \
 --context minDistribution=false --context distributionUrl='https://artifacts.opensearch.org/releases/bundle/opensearch/2.3.0/opensearch-2.3.0-linux-x64.tar.gz' \
 --context cpuArch='x64' --context singleNodeCluster=false --context dataNodeCount=3 \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
