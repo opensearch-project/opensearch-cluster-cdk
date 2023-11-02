@@ -61,7 +61,7 @@ export interface infraProps extends StackProps {
   readonly mlNodeStorage: number,
   readonly jvmSysPropsString?: string,
   readonly additionalConfig?: string,
-  readonly additionalOSDconfig?: string,
+  readonly additionalOsdConfig?: string,
   readonly dataEc2InstanceType: InstanceType,
   readonly mlEc2InstanceType: InstanceType,
   readonly use50PercentHeap: boolean,
@@ -581,7 +581,7 @@ export class InfraStack extends Stack {
         }));
     }
 
-    // final run command based on whether the distribution type is min or bundle
+    // // Startinng OpenSearch based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {
@@ -621,21 +621,22 @@ export class InfraStack extends Stack {
         }));
       }
 
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-        + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
-        cwd: '/home/ec2-user',
-        ignoreErrors: false,
-      }));
-
       // @ts-ignore
-      if (props.additionalOSDconfig.toString() !== 'undefined') {
+      if (props.additionalOsdConfig.toString() !== 'undefined') {
         // @ts-ignore
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards; echo "${props.additionalOSDconfig}">>config/opensearch_dashboards.yml`,
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards; echo "${props.additionalOsdConfig}">>config/opensearch_dashboards.yml`,
           {
             cwd: '/home/ec2-user',
             ignoreErrors: false,
           }));
       }
+
+      // Startinng OpenSearch-Dashboards
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
+        + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
     }
 
     return cfnInitConfig;

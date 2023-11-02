@@ -23,7 +23,7 @@ test('Test Resources with security disabled multi-node default instance types', 
       serverAccessType: 'ipv4',
       restrictServerAccessTo: 'all',
       additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
-      additionalOSDconfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
+      additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
     },
   });
 

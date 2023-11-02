@@ -192,13 +192,13 @@ export class OsClusterEntrypoint {
         }
       }
 
-      const osdConfig = `${scope.node.tryGetContext('additionalOSDconfig')}`;
+      const osdConfig = `${scope.node.tryGetContext('additionalOsdConfig')}`;
       if (osdConfig.toString() !== 'undefined') {
         try {
           const jsonObj = JSON.parse(osdConfig);
           osdYmlConfig = dump(jsonObj);
         } catch (e) {
-          throw new Error(`Encountered following error while parsing additionalOSDconfig json parameter: ${e}`);
+          throw new Error(`Encountered following error while parsing additionalOsdConfig json parameter: ${e}`);
         }
       }
 
@@ -261,7 +261,7 @@ export class OsClusterEntrypoint {
         mlNodeStorage,
         jvmSysPropsString: jvmSysProps,
         additionalConfig: ymlConfig,
-        additionalOSDconfig: osdYmlConfig,
+        additionalOsdConfig: osdYmlConfig,
         use50PercentHeap,
         isInternal,
         enableRemoteStore,
