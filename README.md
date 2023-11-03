@@ -55,6 +55,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | mlInstanceType         | Optional    | string  | EC2 instance type for ml node. Defaults to r5.xlarge. See options in `lib/opensearch-config/node-config.ts` for available options. E.g., `-c mlInstanceType=m5.xlarge`                                                                                                                           |
 | jvmSysProps            | Optional    | string  | A comma-separated list of key=value pairs that will be added to `jvm.options` as JVM system properties.                                                                                                                                                                                          |
 | additionalConfig       | Optional    | string  | Additional opensearch.yml config parameters passed as JSON. e.g., `--context additionalConfig='{"plugins.security.nodes_dn": ["CN=*.example.com, OU=SSL, O=Test, L=Test, C=DE", "CN=node.other.com, OU=SSL, O=Test, L=Test, C=DE"], "plugins.security.nodes_dn_dynamic_config_enabled": false}'` |
+| additionalOsdConfig       | Optional    | string  | Additional opensearch_dashboards.yml config parameters passed as JSON. e.g., `additionalOsdConfig='{"data.search.usageTelemetry.enabled": "true"}'` |
 | suffix                 | Optional    | string  | An optional string identifier to be concatenated with infra stack name.                                                                                                                                                                                                                          |
 | region                 | Optional    | string  | User provided aws region                                                                                                                                                                                                                                                                         |
 | account                | Optional    | string  | User provided aws account                                                                                                                                                                                                                                                                        |
@@ -86,7 +87,7 @@ cdk bootstrap aws://<aws-account-number>/<aws-region> --context securityDisabled
 * Now you are ready to synthesize the CloudFormation templates:
 
 ```
-cdk synth "* " --context securityDisabled=true \
+cdk synth "*" --context securityDisabled=true \
 --context minDistribution=false --context distributionUrl='https://artifacts.opensearch.org/releases/bundle/opensearch/2.3.0/opensearch-2.3.0-linux-x64.tar.gz' \
 --context cpuArch='x64' --context singleNodeCluster=false --context dataNodeCount=3 \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
