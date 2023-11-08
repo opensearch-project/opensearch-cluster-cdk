@@ -203,6 +203,7 @@ export class OsClusterEntrypoint {
       }
 
       const suffix = `${scope.node.tryGetContext('suffix')}`;
+      const networkStackSuffix = `${scope.node.tryGetContext('networkStackSuffix')}`;
 
       const use50heap = `${scope.node.tryGetContext('use50PercentHeap')}`;
       const use50PercentHeap = use50heap === 'true';
@@ -215,7 +216,12 @@ export class OsClusterEntrypoint {
 
       const customRoleArn = `${scope.node.tryGetContext('customRoleArn')}`;
 
-      const network = new NetworkStack(scope, 'opensearch-network-stack', {
+      let networkStackName = 'opensearch-network-stack';
+      if (networkStackSuffix !== 'undefined') {
+        networkStackName = `opensearch-network-stack-${networkStackSuffix}`;
+      }
+
+      const network = new NetworkStack(scope, networkStackName, {
         cidrBlock: cidrRange,
         maxAzs: 3,
         vpcId,
