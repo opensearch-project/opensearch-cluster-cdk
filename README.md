@@ -98,7 +98,7 @@ cdk synth "*" --context securityDisabled=false \
 --context distVersion=2.3.0 --context serverAccessType=ipv4 --context restrictServerAccessTo=10.10.10.10/32
 ```
 
-#### Sample command to set up multi-node cluster with security disabled on x64 AL2 machine
+#### Sample command to set up multi-node cluster with security enabled on x64 AL2 machine
 
 Please note that as of now we only support instances backed by Amazon Linux-2 amis.
 
