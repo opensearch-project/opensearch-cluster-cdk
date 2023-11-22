@@ -59,16 +59,16 @@ export interface infraProps extends StackProps {
   readonly mlNodeCount: number,
   readonly dataNodeStorage: number,
   readonly mlNodeStorage: number,
-  readonly jvmSysPropsString?: string,
-  readonly additionalConfig?: string,
-  readonly additionalOsdConfig?: string,
   readonly dataEc2InstanceType: InstanceType,
   readonly mlEc2InstanceType: InstanceType,
   readonly use50PercentHeap: boolean,
   readonly isInternal: boolean,
   readonly enableRemoteStore: boolean,
   readonly storageVolumeType: EbsDeviceVolumeType,
-  readonly customRoleArn: string
+  readonly customRoleArn: string,
+  readonly jvmSysPropsString?: string,
+  readonly additionalConfig?: string,
+  readonly additionalOsdConfig?: string,
 }
 
 export class InfraStack extends Stack {
