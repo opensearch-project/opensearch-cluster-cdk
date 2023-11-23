@@ -65,6 +65,7 @@ export class OsClusterEntrypoint {
       let dataEc2InstanceType: InstanceType;
       let mlEc2InstanceType: InstanceType;
       let volumeType: EbsDeviceVolumeType;
+      let customConfigFiles: string = 'undefined';
 
       const x64InstanceTypes: string[] = Object.keys(x64Ec2InstanceType);
       const arm64InstanceTypes: string[] = Object.keys(arm64Ec2InstanceType);
@@ -202,6 +203,8 @@ export class OsClusterEntrypoint {
         }
       }
 
+      customConfigFiles = `${scope.node.tryGetContext('customConfigFiles')}`;
+
       const suffix = `${scope.node.tryGetContext('suffix')}`;
       const networkStackSuffix = `${scope.node.tryGetContext('networkStackSuffix')}`;
 
@@ -249,13 +252,13 @@ export class OsClusterEntrypoint {
         securityDisabled: security,
         opensearchVersion: distVersion,
         clientNodeCount: clientCount,
-        cpuArch: cpuArch,
+        cpuArch,
         cpuType: instanceCpuType,
-        dataEc2InstanceType: dataEc2InstanceType,
-        mlEc2InstanceType: mlEc2InstanceType,
+        dataEc2InstanceType,
+        mlEc2InstanceType,
         dashboardsUrl: dashboardUrl,
         dataNodeCount: dataCount,
-        distributionUrl: distributionUrl,
+        distributionUrl,
         ingestNodeCount: ingestCount,
         managerNodeCount: managerCount,
         minDistribution: minDist,
@@ -263,16 +266,17 @@ export class OsClusterEntrypoint {
         // @ts-ignore
         securityGroup: this.securityGroup,
         singleNodeCluster: isSingleNode,
-        dataNodeStorage: dataNodeStorage,
-        mlNodeStorage: mlNodeStorage,
-        use50PercentHeap: use50PercentHeap,
-        isInternal: isInternal,
-        enableRemoteStore: enableRemoteStore,
+        dataNodeStorage,
+        mlNodeStorage,
+        use50PercentHeap,
+        isInternal,
+        enableRemoteStore,
         storageVolumeType: volumeType,
-        customRoleArn: customRoleArn,
+        customRoleArn,
         jvmSysPropsString: jvmSysProps,
         additionalConfig: ymlConfig,
         additionalOsdConfig: osdYmlConfig,
+        customConfigFiles,
         ...props,
       });
 

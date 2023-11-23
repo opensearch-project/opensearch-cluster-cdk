@@ -69,6 +69,7 @@ export interface infraProps extends StackProps {
   readonly jvmSysPropsString?: string,
   readonly additionalConfig?: string,
   readonly additionalOsdConfig?: string,
+  readonly customConfigFiles?: string,
 }
 
 export class InfraStack extends Stack {
@@ -585,7 +586,25 @@ export class InfraStack extends Stack {
         }));
     }
 
-    // // Startinng OpenSearch based on whether the distribution type is min or bundle
+    if (props.customConfigFiles !== 'undefined') {
+      try {
+        // @ts-ignore
+        const jsonObj = JSON.parse(props.customConfigFiles);
+        Object.keys(jsonObj).forEach((localFileName) => {
+          const getConfig = load(readFileSync(localFileName, 'utf-8'));
+          const remoteConfigLocation = jsonObj[localFileName];
+          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; echo "${dump(getConfig)}" > ${remoteConfigLocation}`,
+            {
+              cwd: '/home/ec2-user',
+              ignoreErrors: false,
+            }));
+        });
+      } catch (e) {
+        throw new Error(`Encountered following error while parsing customConfigFiles json parameter: ${e}`);
+      }
+    }
+
+    // Starting OpenSearch based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {

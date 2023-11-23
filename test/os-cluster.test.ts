@@ -24,6 +24,8 @@ test('Test Resources with security disabled multi-node default instance types', 
       restrictServerAccessTo: 'all',
       additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
       additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
+      // eslint-disable-next-line max-len
+      customConfigFiles: '{"test/data/config.yml": "opensearch/config/opensearch-security/config.yml", "test/data/roles.yml": "opensearch/config/opensearch-security/roles.yml"}',
     },
   });
 
