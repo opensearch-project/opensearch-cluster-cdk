@@ -491,3 +491,36 @@ test('Test multi-node cluster with custom IAM Role', () => {
     Roles: ['customRoleName'],
   });
 });
+
+test('Throw error on incorrect JSON', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
+      additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
+      // eslint-disable-next-line max-len
+      customConfigFiles: '{"test/data/config.yml": opensearch/config/opensearch-security/config.yml"}',
+    },
+  });
+  // WHEN
+  try {
+    const testStack = new OsClusterEntrypoint(app, {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // eslint-disable-next-line max-len
+    expect(error.message).toEqual('Encountered following error while parsing customConfigFiles json parameter: SyntaxError: Unexpected token o in JSON at position 25');
+  }
+});

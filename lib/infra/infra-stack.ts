@@ -654,7 +654,7 @@ export class InfraStack extends Stack {
           }));
       }
 
-      // Startinng OpenSearch-Dashboards
+      // Starting OpenSearch-Dashboards
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
         + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
         cwd: '/home/ec2-user',
