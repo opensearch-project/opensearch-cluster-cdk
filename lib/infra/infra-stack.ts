@@ -59,16 +59,17 @@ export interface infraProps extends StackProps {
   readonly mlNodeCount: number,
   readonly dataNodeStorage: number,
   readonly mlNodeStorage: number,
-  readonly jvmSysPropsString?: string,
-  readonly additionalConfig?: string,
-  readonly additionalOsdConfig?: string,
   readonly dataEc2InstanceType: InstanceType,
   readonly mlEc2InstanceType: InstanceType,
   readonly use50PercentHeap: boolean,
   readonly isInternal: boolean,
   readonly enableRemoteStore: boolean,
   readonly storageVolumeType: EbsDeviceVolumeType,
-  readonly customRoleArn: string
+  readonly customRoleArn: string,
+  readonly jvmSysPropsString?: string,
+  readonly additionalConfig?: string,
+  readonly additionalOsdConfig?: string,
+  readonly customConfigFiles?: string,
 }
 
 export class InfraStack extends Stack {
@@ -585,7 +586,25 @@ export class InfraStack extends Stack {
         }));
     }
 
-    // // Startinng OpenSearch based on whether the distribution type is min or bundle
+    if (props.customConfigFiles !== 'undefined') {
+      try {
+        // @ts-ignore
+        const jsonObj = JSON.parse(props.customConfigFiles);
+        Object.keys(jsonObj).forEach((localFileName) => {
+          const getConfig = load(readFileSync(localFileName, 'utf-8'));
+          const remoteConfigLocation = jsonObj[localFileName];
+          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; echo "${dump(getConfig)}" > ${remoteConfigLocation}`,
+            {
+              cwd: '/home/ec2-user',
+              ignoreErrors: false,
+            }));
+        });
+      } catch (e) {
+        throw new Error(`Encountered following error while parsing customConfigFiles json parameter: ${e}`);
+      }
+    }
+
+    // Starting OpenSearch based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {
@@ -635,7 +654,7 @@ export class InfraStack extends Stack {
           }));
       }
 
-      // Startinng OpenSearch-Dashboards
+      // Starting OpenSearch-Dashboards
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
         + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
         cwd: '/home/ec2-user',

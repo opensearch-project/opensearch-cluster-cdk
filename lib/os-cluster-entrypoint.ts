@@ -65,6 +65,7 @@ export class OsClusterEntrypoint {
       let dataEc2InstanceType: InstanceType;
       let mlEc2InstanceType: InstanceType;
       let volumeType: EbsDeviceVolumeType;
+      let customConfigFiles: string = 'undefined';
 
       const x64InstanceTypes: string[] = Object.keys(x64Ec2InstanceType);
       const arm64InstanceTypes: string[] = Object.keys(arm64Ec2InstanceType);
@@ -202,6 +203,8 @@ export class OsClusterEntrypoint {
         }
       }
 
+      customConfigFiles = `${scope.node.tryGetContext('customConfigFiles')}`;
+
       const suffix = `${scope.node.tryGetContext('suffix')}`;
       const networkStackSuffix = `${scope.node.tryGetContext('networkStackSuffix')}`;
 
@@ -265,14 +268,15 @@ export class OsClusterEntrypoint {
         singleNodeCluster: isSingleNode,
         dataNodeStorage,
         mlNodeStorage,
-        jvmSysPropsString: jvmSysProps,
-        additionalConfig: ymlConfig,
-        additionalOsdConfig: osdYmlConfig,
         use50PercentHeap,
         isInternal,
         enableRemoteStore,
         storageVolumeType: volumeType,
         customRoleArn,
+        jvmSysPropsString: jvmSysProps,
+        additionalConfig: ymlConfig,
+        additionalOsdConfig: osdYmlConfig,
+        customConfigFiles,
         ...props,
       });
 
