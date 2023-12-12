@@ -20,7 +20,7 @@ export interface ProcstatMetricDefinition {
     pattern?: string;
     // eslint-disable-next-line camelcase
     append_dimensions?: string[];
-    measurement: string[]; // procstat doesn't support the common measurement standard for rename/unit
+    measurement: string[]; // procstat does not support the common measurement standard for rename/unit
     // eslint-disable-next-line camelcase
     metrics_collection_interval: number;
   }
