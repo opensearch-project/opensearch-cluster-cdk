@@ -27,6 +27,7 @@ export interface ProcstatMetricDefinition {
 
 interface EditableCloudwatchMetricsSection {
     // eslint-disable-next-line camelcase
+    namespace?: string;
     metrics_collected: {
         procstat?: ProcstatMetricDefinition[],
         cpu?: MetricDefinition,

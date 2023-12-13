@@ -11,7 +11,7 @@ import {
 import {
   AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
 } from 'aws-cdk-lib/aws-autoscaling';
-import { Unit } from 'aws-cdk-lib/aws-cloudwatch';
+import { Metric, Unit } from 'aws-cdk-lib/aws-cloudwatch';
 import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
@@ -40,6 +40,7 @@ import { dump, load } from 'js-yaml';
 import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { ProcstatMetricDefinition } from '../cloudwatch/metrics-section';
+import { Monitoring } from '../monitoring/alarms';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
 
@@ -76,6 +77,12 @@ export interface infraProps extends StackProps {
 
 export class InfraStack extends Stack {
   private instanceRole: Role;
+  public readonly alarmMetrics: {
+    memUsed: Metric,
+    diskUsed: Metric,
+    openSearchProcessNotFound: Metric,
+    openSearchDashboardsProcessNotFound: Metric
+  }
 
   constructor(scope: Stack, id: string, props: infraProps) {
     super(scope, id, props);
@@ -87,6 +94,35 @@ export class InfraStack extends Stack {
     let seedConfig: string;
     let hostType: InstanceType;
     let singleNodeInstance: Instance;
+
+    this.alarmMetrics = {
+      memUsed: new Metric({
+        metricName: 'mem_used_percent',
+        namespace: `${this.stackName}/InfraStack`,
+      }),
+      diskUsed: new Metric({
+        metricName: 'disk_used_percent',
+        namespace: `${this.stackName}/InfraStack`,
+        dimensionsMap: {
+            device: "nvme0n1p1",
+            fstype: "xfs"
+        }
+      }),
+      openSearchProcessNotFound: new Metric({
+        metricName: 'procstat_lookup_pid_count',
+        namespace: `${this.stackName}/InfraStack`,
+        dimensionsMap: {
+          pattern: '-Dopensearch'
+        }
+      }),
+      openSearchDashboardsProcessNotFound: new Metric({
+        metricName: 'procstat_lookup_pid_count',
+        namespace: `${this.stackName}/InfraStack`,
+        dimensionsMap: {
+          pattern: 'opensearch-dashboards'
+        }
+      })
+    }
 
     const clusterLogGroup = new LogGroup(this, 'opensearchLogGroup', {
       logGroupName: `${id}LogGroup/opensearch.log`,
@@ -368,10 +404,11 @@ export class InfraStack extends Stack {
         });
       }
     }
-
     new CfnOutput(this, 'loadbalancer-url', {
       value: nlb.loadBalancerDnsName,
     });
+
+    const monitoring = new Monitoring(this)
   }
 
   private static getCfnInitElement(scope: Stack, logGroup: LogGroup, props: infraProps, nodeType?: string): InitElement[] {
@@ -406,6 +443,7 @@ export class InfraStack extends Stack {
             debug: false,
           },
           metrics: {
+            namespace: `${scope.stackName}/InfraStack`,
             metrics_collected: {
               procstat: procstatConfig,
               cpu: {
