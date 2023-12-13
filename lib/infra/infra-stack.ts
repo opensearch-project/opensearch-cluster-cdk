@@ -380,11 +380,6 @@ export class InfraStack extends Stack {
     const procstatConfig: ProcstatMetricDefinition[] = [{
       pattern: '-Dopensearch',
       measurement: [
-        'cpu_usage',
-        'cpu_time_system',
-        'cpu_time_user',
-        'read_bytes',
-        'write_bytes',
         'pid_count',
       ],
       metrics_collection_interval: 10,
@@ -394,11 +389,6 @@ export class InfraStack extends Stack {
       procstatConfig.push({
         pattern: 'opensearch-dashboards',
         measurement: [
-          'cpu_usage',
-          'cpu_time_system',
-          'cpu_time_user',
-          'read_bytes',
-          'write_bytes',
           'pid_count',
         ],
         metrics_collection_interval: 15,
