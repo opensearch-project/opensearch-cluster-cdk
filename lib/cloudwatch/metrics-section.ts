@@ -5,18 +5,35 @@ The OpenSearch Contributors require contributions made to
 this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
+import { Unit } from 'aws-cdk-lib/aws-cloudwatch';
+
+type MeasurementDefinition = string | { name: string, rename?: string, unit?: Unit }
+
 interface MetricDefinition {
-    measurement: string[];
-}
+    resources?: string[],
+    measurement: MeasurementDefinition[],
+    // eslint-disable-next-line camelcase
+    metrics_collection_interval?: number,
+  }
+
+export interface ProcstatMetricDefinition {
+    pattern?: string;
+    // eslint-disable-next-line camelcase
+    append_dimensions?: string[];
+    measurement: string[]; // procstat does not support the common measurement standard for rename/unit
+    // eslint-disable-next-line camelcase
+    metrics_collection_interval: number;
+  }
 
 interface EditableCloudwatchMetricsSection {
     // eslint-disable-next-line camelcase
     metrics_collected: {
-        cpu: MetricDefinition,
-        disk: MetricDefinition,
-        diskio: MetricDefinition,
-        mem: MetricDefinition,
-        net: MetricDefinition,
+        procstat?: ProcstatMetricDefinition[],
+        cpu?: MetricDefinition,
+        disk?: MetricDefinition,
+        diskio?: MetricDefinition,
+        mem?: MetricDefinition,
+        net?: MetricDefinition,
     };
 }
 

@@ -11,6 +11,7 @@ import {
 import {
   AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
 } from 'aws-cdk-lib/aws-autoscaling';
+import { Unit } from 'aws-cdk-lib/aws-cloudwatch';
 import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
@@ -38,6 +39,7 @@ import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
 import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
+import { ProcstatMetricDefinition } from '../cloudwatch/metrics-section';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
 
@@ -375,6 +377,23 @@ export class InfraStack extends Stack {
   private static getCfnInitElement(scope: Stack, logGroup: LogGroup, props: infraProps, nodeType?: string): InitElement[] {
     const configFileDir = join(__dirname, '../opensearch-config');
     let opensearchConfig: string;
+    const procstatConfig: ProcstatMetricDefinition[] = [{
+      pattern: '-Dopensearch',
+      measurement: [
+        'pid_count',
+      ],
+      metrics_collection_interval: 10,
+    },
+    ];
+    if (props.dashboardsUrl !== 'undefined') {
+      procstatConfig.push({
+        pattern: 'opensearch-dashboards',
+        measurement: [
+          'pid_count',
+        ],
+        metrics_collection_interval: 15,
+      });
+    }
 
     const cfnInitConfig: InitElement[] = [
       InitPackage.yum('amazon-cloudwatch-agent'),
@@ -388,6 +407,7 @@ export class InfraStack extends Stack {
           },
           metrics: {
             metrics_collected: {
+              procstat: procstatConfig,
               cpu: {
                 measurement: [
                   // eslint-disable-next-line max-len
@@ -396,7 +416,13 @@ export class InfraStack extends Stack {
               },
               disk: {
                 measurement: [
-                  'free', 'total', 'used', 'used_percent', 'inodes_free', 'inodes_used', 'inodes_total',
+                  { name: 'free', unit: Unit.PERCENT },
+                  { name: 'total', unit: Unit.PERCENT },
+                  { name: 'used', unit: Unit.PERCENT },
+                  { name: 'used_percent', unit: Unit.PERCENT },
+                  { name: 'inodes_free', unit: Unit.PERCENT },
+                  { name: 'inodes_used', unit: Unit.PERCENT },
+                  { name: 'inodes_total', unit: Unit.PERCENT },
                 ],
               },
               diskio: {
@@ -406,7 +432,16 @@ export class InfraStack extends Stack {
               },
               mem: {
                 measurement: [
-                  'active', 'available', 'available_percent', 'buffered', 'cached', 'free', 'inactive', 'total', 'used', 'used_percent',
+                  { name: 'active', unit: Unit.PERCENT },
+                  { name: 'available', unit: Unit.PERCENT },
+                  { name: 'available_percent', unit: Unit.PERCENT },
+                  { name: 'buffered', unit: Unit.PERCENT },
+                  { name: 'cached', unit: Unit.PERCENT },
+                  { name: 'free', unit: Unit.PERCENT },
+                  { name: 'inactive', unit: Unit.PERCENT },
+                  { name: 'total', unit: Unit.PERCENT },
+                  { name: 'used', unit: Unit.PERCENT },
+                  { name: 'used_percent', unit: Unit.PERCENT },
                 ],
               },
               net: {
