@@ -50,6 +50,8 @@ test('Test Resources with security disabled multi-node default instance types', 
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
   infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 3);
+  infraTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 4);
+  infraTemplate.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
     Port: 80,
     Protocol: 'TCP',

@@ -11,7 +11,7 @@ import {
 import {
   AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
 } from 'aws-cdk-lib/aws-autoscaling';
-import { Metric, Unit } from 'aws-cdk-lib/aws-cloudwatch';
+import { MathExpression, Metric, Unit } from 'aws-cdk-lib/aws-cloudwatch';
 import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
@@ -77,11 +77,12 @@ export interface infraProps extends StackProps {
 
 export class InfraStack extends Stack {
   private instanceRole: Role;
+
   public readonly alarmMetrics: {
-    memUsed: Metric,
-    diskUsed: Metric,
-    openSearchProcessNotFound: Metric,
-    openSearchDashboardsProcessNotFound: Metric
+    memUsed: Metric | MathExpression,
+    diskUsed: Metric| MathExpression,
+    openSearchProcessNotFound: Metric | MathExpression,
+    openSearchDashboardsProcessNotFound?: Metric | MathExpression,
   }
 
   constructor(scope: Stack, id: string, props: infraProps) {
@@ -100,29 +101,16 @@ export class InfraStack extends Stack {
         metricName: 'mem_used_percent',
         namespace: `${this.stackName}/InfraStack`,
       }),
-      diskUsed: new Metric({
-        metricName: 'disk_used_percent',
-        namespace: `${this.stackName}/InfraStack`,
-        dimensionsMap: {
-            device: "nvme0n1p1",
-            fstype: "xfs"
-        }
+      diskUsed: new MathExpression({
+        expression: `SELECT AVG(disk_used_percent) FROM "${this.stackName}/InfraStack" WHERE "fstype" = 'xfs'`,
       }),
-      openSearchProcessNotFound: new Metric({
-        metricName: 'procstat_lookup_pid_count',
-        namespace: `${this.stackName}/InfraStack`,
-        dimensionsMap: {
-          pattern: '-Dopensearch'
-        }
+      openSearchProcessNotFound: new MathExpression({
+        expression: `SELECT AVG(procstat_lookup_pid_count) FROM "${this.stackName}/InfraStack" WHERE "pattern" = '-Dopensearch'`,
       }),
-      openSearchDashboardsProcessNotFound: new Metric({
-        metricName: 'procstat_lookup_pid_count',
-        namespace: `${this.stackName}/InfraStack`,
-        dimensionsMap: {
-          pattern: 'opensearch-dashboards'
-        }
-      })
-    }
+      openSearchDashboardsProcessNotFound: new MathExpression({
+        expression: `SELECT AVG(procstat_lookup_pid_count) FROM "${this.stackName}/InfraStack" WHERE "pattern" = 'opensearch-dashboards'`,
+      }),
+    };
 
     const clusterLogGroup = new LogGroup(this, 'opensearchLogGroup', {
       logGroupName: `${id}LogGroup/opensearch.log`,
@@ -408,7 +396,7 @@ export class InfraStack extends Stack {
       value: nlb.loadBalancerDnsName,
     });
 
-    const monitoring = new Monitoring(this)
+    const monitoring = new Monitoring(this, props);
   }
 
   private static getCfnInitElement(scope: Stack, logGroup: LogGroup, props: infraProps, nodeType?: string): InitElement[] {
@@ -443,6 +431,11 @@ export class InfraStack extends Stack {
             debug: false,
           },
           metrics: {
+            append_dimensions: {
+              // eslint-disable-next-line no-template-curly-in-string
+              InstanceId: '${aws:InstanceId}',
+            },
+            aggregation_dimensions: [[]], // Create rollups without instance id
             namespace: `${scope.stackName}/InfraStack`,
             metrics_collected: {
               procstat: procstatConfig,
