@@ -87,7 +87,6 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
   const app = new App({
     context: {
       securityDisabled: false,
-      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -166,7 +165,6 @@ test('Test Resources with security enabled single-node cluster', () => {
   const app = new App({
     context: {
       securityDisabled: false,
-      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -222,7 +220,6 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   const app = new App({
     context: {
       securityDisabled: false,
-      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'arm64',
@@ -257,7 +254,6 @@ test('Throw error on ec2 instance outside of enum list', () => {
   const app = new App({
     context: {
       securityDisabled: false,
-      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -432,7 +428,6 @@ test('Throw error on unsupported ebs volume type', () => {
   const app = new App({
     context: {
       securityDisabled: false,
-      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
