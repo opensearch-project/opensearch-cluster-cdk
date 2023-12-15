@@ -11,7 +11,7 @@ import {
 import {
   AutoScalingGroup, BlockDeviceVolume, EbsDeviceVolumeType, Signals,
 } from 'aws-cdk-lib/aws-autoscaling';
-import { MathExpression, Metric, Unit } from 'aws-cdk-lib/aws-cloudwatch';
+import { Unit } from 'aws-cdk-lib/aws-cloudwatch';
 import {
   AmazonLinuxCpuType,
   AmazonLinuxGeneration,
@@ -73,17 +73,11 @@ export interface infraProps extends StackProps {
   readonly additionalConfig?: string,
   readonly additionalOsdConfig?: string,
   readonly customConfigFiles?: string,
+  readonly enableMonitoring?: boolean,
 }
 
 export class InfraStack extends Stack {
   private instanceRole: Role;
-
-  public readonly alarmMetrics: {
-    memUsed: Metric | MathExpression,
-    diskUsed: Metric| MathExpression,
-    openSearchProcessNotFound: Metric | MathExpression,
-    openSearchDashboardsProcessNotFound?: Metric | MathExpression,
-  }
 
   constructor(scope: Stack, id: string, props: infraProps) {
     super(scope, id, props);
@@ -95,22 +89,6 @@ export class InfraStack extends Stack {
     let seedConfig: string;
     let hostType: InstanceType;
     let singleNodeInstance: Instance;
-
-    this.alarmMetrics = {
-      memUsed: new Metric({
-        metricName: 'mem_used_percent',
-        namespace: `${this.stackName}/InfraStack`,
-      }),
-      diskUsed: new MathExpression({
-        expression: `SELECT AVG(disk_used_percent) FROM "${this.stackName}/InfraStack" WHERE "fstype" = 'xfs'`,
-      }),
-      openSearchProcessNotFound: new MathExpression({
-        expression: `SELECT AVG(procstat_lookup_pid_count) FROM "${this.stackName}/InfraStack" WHERE "pattern" = '-Dopensearch'`,
-      }),
-      openSearchDashboardsProcessNotFound: new MathExpression({
-        expression: `SELECT AVG(procstat_lookup_pid_count) FROM "${this.stackName}/InfraStack" WHERE "pattern" = 'opensearch-dashboards'`,
-      }),
-    };
 
     const clusterLogGroup = new LogGroup(this, 'opensearchLogGroup', {
       logGroupName: `${id}LogGroup/opensearch.log`,
@@ -396,7 +374,9 @@ export class InfraStack extends Stack {
       value: nlb.loadBalancerDnsName,
     });
 
-    const monitoring = new InfraStackMonitoring(this, props.dashboardsUrl);
+    if (props.enableMonitoring){
+      const monitoring = new InfraStackMonitoring(this, props.dashboardsUrl);
+    }
   }
 
   private static getCfnInitElement(scope: Stack, logGroup: LogGroup, props: infraProps, nodeType?: string): InitElement[] {
