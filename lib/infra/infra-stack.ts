@@ -649,7 +649,7 @@ export class InfraStack extends Stack {
           ignoreErrors: false,
         }));
     } else {
-      // set initial admin password to be needed by demo configuration
+      // set initial admin password needed by demo configuration for clusters 2.12 and above
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${props.adminPassword}`
         + `./opensearch-tar-install.sh >> install.log 2>&1 &`,
         {
