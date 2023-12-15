@@ -87,8 +87,8 @@ export class OsClusterEntrypoint {
       const security = securityDisabled === 'true';
 
       // adminPassword is required if security is enabled and demo config is to be run
-      const adminPassword: String = security ? `${scope.node.tryGetContext('adminPassword')}` : "";
-      if (security && (adminPassword === null || adminPassword === "")) {
+      const adminPassword: String = security ? `${scope.node.tryGetContext('adminPassword')}` : "";    
+      if (!security && Number.parseFloat(distVersion) >= 2.12 && (adminPassword === null || adminPassword === "")) {
         throw new Error('adminPassword parameter is required to be set when security is enabled');
       }
 

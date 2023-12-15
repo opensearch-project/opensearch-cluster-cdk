@@ -530,7 +530,7 @@ test('Throw error on incorrect JSON', () => {
   }
 });
 
-test('Throw error when security is enabled and adminPassword is not defined', () => {
+test('Throw error when security is enabled and adminPassword is not defined and dist version is greater than or equal to 2.12', () => {
   const app = new App({
     context: {
       securityDisabled: false,
@@ -539,16 +539,16 @@ test('Throw error when security is enabled and adminPassword is not defined', ()
       cpuArch: 'x64',
       singleNodeCluster: false,
       dashboardsUrl: 'www.example.com',
-      distVersion: '1.0.0',
+      distVersion: '3.0.0',
       serverAccessType: 'ipv4',
       restrictServerAccessTo: 'all',
-      additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
-      additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
-      // eslint-disable-next-line max-len
-      customConfigFiles: '{"test/data/config.yml": opensearch/config/opensearch-security/config.yml"}',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
     },
   });
-  // WHEN
+
   try {
     const testStack = new OsClusterEntrypoint(app, {
       env: { account: 'test-account', region: 'us-east-1' },
@@ -562,3 +562,33 @@ test('Throw error when security is enabled and adminPassword is not defined', ()
     expect(error.message).toEqual('adminPassword parameter is required to be set when security is enabled');
   }
 });
+
+test('Should not throw error when security is enabled and adminPassword is not defined and dist version is less than 2.12', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
+    },
+  });
+
+  // WHEN
+  const testStack = new OsClusterEntrypoint(app, {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  expect(testStack.stacks).toHaveLength(2);
+
+});
+
