@@ -87,6 +87,7 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
   const app = new App({
     context: {
       securityDisabled: false,
+      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -165,6 +166,7 @@ test('Test Resources with security enabled single-node cluster', () => {
   const app = new App({
     context: {
       securityDisabled: false,
+      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -220,6 +222,7 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   const app = new App({
     context: {
       securityDisabled: false,
+      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'arm64',
@@ -254,6 +257,7 @@ test('Throw error on ec2 instance outside of enum list', () => {
   const app = new App({
     context: {
       securityDisabled: false,
+      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -428,6 +432,7 @@ test('Throw error on unsupported ebs volume type', () => {
   const app = new App({
     context: {
       securityDisabled: false,
+      adminPassword: "myStrongPassword123!",
       minDistribution: false,
       distributionUrl: 'www.example.com',
       cpuArch: 'x64',
@@ -522,5 +527,38 @@ test('Throw error on incorrect JSON', () => {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
     expect(error.message).toEqual('Encountered following error while parsing customConfigFiles json parameter: SyntaxError: Unexpected token o in JSON at position 25');
+  }
+});
+
+test('Throw error when security is enabled and adminPassword is not defined', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
+      additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
+      // eslint-disable-next-line max-len
+      customConfigFiles: '{"test/data/config.yml": opensearch/config/opensearch-security/config.yml"}',
+    },
+  });
+  // WHEN
+  try {
+    const testStack = new OsClusterEntrypoint(app, {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // eslint-disable-next-line max-len
+    expect(error.message).toEqual('adminPassword parameter is required to be set when security is enabled');
   }
 });
