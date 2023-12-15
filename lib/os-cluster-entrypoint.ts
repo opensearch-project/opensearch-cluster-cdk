@@ -86,6 +86,12 @@ export class OsClusterEntrypoint {
       }
       const security = securityDisabled === 'true';
 
+      // adminPassword is required if security is enabled and demo config is to be run
+      const adminPassword: String = security ? `${scope.node.tryGetContext('adminPassword')}` : "";
+      if (security && adminPassword == null) {
+        throw new Error('adminPassword parameter is required to be set when security is enabled');
+      }
+
       const minDistribution = `${scope.node.tryGetContext('minDistribution')}`;
       if (minDistribution !== 'true' && minDistribution !== 'false') {
         throw new Error('minDistribution parameter is required to be set as - true or false');
@@ -250,6 +256,7 @@ export class OsClusterEntrypoint {
       const infraStack = new InfraStack(scope, infraStackName, {
         vpc: this.vpc,
         securityDisabled: security,
+        adminPassword: adminPassword,
         opensearchVersion: distVersion,
         clientNodeCount: clientCount,
         cpuArch,

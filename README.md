@@ -1,20 +1,24 @@
 # CDK for deploying single-node and multi-node OpenSearch cluster with OpenSearch Dashboards
 
-- [Getting Started](#getting-started)
-- [Deployment](#deployment)
-  - [Required context parameters](#required-context-parameters)
-  - [Interacting with OpenSearch cluster](#interacting-with-opensearch-cluster)
-  - [Restricting Server Access](#restricting-server-access)
-  - [Enable Remote Store Feature](#enable-remote-store-feature)
-- [Check Logs](#check-logs)
-- [Access EC2 Instances](#access-ec2-instances)
-- [Port Mapping](#port-mapping)
-- [Teardown](#teardown)
-- [Contributing](#contributing)
-- [Getting Help](#getting-help)
-- [Code of Conduct](#code-of-conduct)
-- [Security](#security)
-- [License](#license)
+- [CDK for deploying single-node and multi-node OpenSearch cluster with OpenSearch Dashboards](#cdk-for-deploying-single-node-and-multi-node-opensearch-cluster-with-opensearch-dashboards)
+  - [Getting Started](#getting-started)
+  - [Deployment](#deployment)
+    - [Required context parameters](#required-context-parameters)
+      - [Sample command to set up multi-node cluster with security enabled on x64 AL2 machine](#sample-command-to-set-up-multi-node-cluster-with-security-enabled-on-x64-al2-machine)
+    - [Interacting with OpenSearch cluster](#interacting-with-opensearch-cluster)
+      - [Sample commands](#sample-commands)
+    - [Restricting Server Access](#restricting-server-access)
+      - [Please note the load-balancer url is internet facing and can be accessed by anyone.](#please-note-the-load-balancer-url-is-internet-facing-and-can-be-accessed-by-anyone)
+    - [Enable Remote Store Feature](#enable-remote-store-feature)
+  - [Check logs](#check-logs)
+  - [Access EC2 Instances](#access-ec2-instances)
+  - [Port Mapping](#port-mapping)
+  - [Teardown](#teardown)
+  - [Contributing](#contributing)
+  - [Getting Help](#getting-help)
+  - [Code of Conduct](#code-of-conduct)
+  - [Security](#security)
+  - [License](#license)
 
 This project enables user to deploy either a single-node or a multi-node OpenSearch cluster.
 There are two stacks that get deployed:
@@ -120,7 +124,7 @@ After CDK Stack deployment the user will be returned a load-balancer url which t
 
 To interact with dashboards use port `8443`. Type `http://<load-balancer-url>:8443` in your browser.
 
-For security enabled cluster run `curl -X GET https://<load-balancer-url> -u 'admin:admin' --insecure`
+For security enabled cluster run `curl -X GET https://<load-balancer-url> -u 'admin:<admin-password>' --insecure`
 The security enabled dashboard is accessible using `http` on port `8443`
 
 ### Restricting Server Access

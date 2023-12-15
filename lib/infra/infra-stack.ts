@@ -50,6 +50,7 @@ export interface infraProps extends StackProps {
   readonly cpuArch: string,
   readonly cpuType: AmazonLinuxCpuType,
   readonly securityDisabled: boolean,
+  readonly adminPassword: string,
   readonly minDistribution: boolean,
   readonly distributionUrl: string,
   readonly dashboardsUrl: string,
@@ -639,6 +640,7 @@ export class InfraStack extends Stack {
       }
     }
 
+
     // Starting OpenSearch based on whether the distribution type is min or bundle
     if (props.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
@@ -647,7 +649,8 @@ export class InfraStack extends Stack {
           ignoreErrors: false,
         }));
     } else {
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./opensearch-tar-install.sh >> install.log 2>&1 &',
+      // set initial admin password to be needed by demo configuration
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${props.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
         {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
