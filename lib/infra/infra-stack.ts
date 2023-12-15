@@ -374,7 +374,7 @@ export class InfraStack extends Stack {
       value: nlb.loadBalancerDnsName,
     });
 
-    if (props.enableMonitoring){
+    if (props.enableMonitoring) {
       const monitoring = new InfraStackMonitoring(this, props.dashboardsUrl);
     }
   }

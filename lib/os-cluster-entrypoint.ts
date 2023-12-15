@@ -217,8 +217,8 @@ export class OsClusterEntrypoint {
       const remoteStore = `${scope.node.tryGetContext('enableRemoteStore')}`;
       const enableRemoteStore = remoteStore === 'true';
 
-      const enableMonitoringAndAlarms = scope.node.tryGetContext('enableMonitoring');
-      const enableMonitoring = enableMonitoringAndAlarms === 'true'
+      const monitoringAndAlarms = `${scope.node.tryGetContext('enableMonitoring')}`;
+      const enableMonitoring = monitoringAndAlarms === 'true';
 
       const customRoleArn = `${scope.node.tryGetContext('customRoleArn')}`;
 

@@ -18,6 +18,7 @@ export class InfraStackMonitoring {
       openSearchProcessNotFound: Metric | MathExpression,
       openSearchDashboardsProcessNotFound?: Metric | MathExpression,
     }
+
     public readonly alarms: Alarm[] = []
 
     constructor(infraStack: InfraStack, dashboardsUrl: string) {
