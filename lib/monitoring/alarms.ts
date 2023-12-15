@@ -7,14 +7,14 @@
  */
 
 import {
-  Alarm, AlarmWidget, ComparisonOperator, Dashboard, TreatMissingData,
+    Alarm, AlarmWidget, ComparisonOperator, Dashboard, TreatMissingData,
 } from 'aws-cdk-lib/aws-cloudwatch';
-import { InfraStack, infraProps } from '../infra/infra-stack';
+import { InfraStack } from '../infra/infra-stack';
 
-export class Monitoring {
+export class InfraStackMonitoring {
     public readonly alarms: Alarm[] = []
 
-    constructor(infraStack: InfraStack, infraprops: infraProps) {
+    constructor(infraStack: InfraStack, dashboardsUrl: string) {
       const alarmDashboard = new Dashboard(infraStack, 'AlarmDashboard');
       this.alarms.push(new Alarm(infraStack, 'OpenSearchProcessNotFound', {
         alarmDescription: 'OpenSearch Process not found',
@@ -26,7 +26,7 @@ export class Monitoring {
         treatMissingData: TreatMissingData.IGNORE,
       }));
 
-      if (infraprops.dashboardsUrl !== 'undefined' && infraStack.alarmMetrics.openSearchDashboardsProcessNotFound !== undefined) {
+      if (dashboardsUrl !== 'undefined' && infraStack.alarmMetrics.openSearchDashboardsProcessNotFound !== undefined) {
         this.alarms.push(new Alarm(infraStack, 'OpenSearchDashboardsProcessNotFound', {
           alarmDescription: 'OpenSearch Dashboards Process not found',
           metric: infraStack.alarmMetrics.openSearchDashboardsProcessNotFound.with({ statistic: 'avg' }),

@@ -40,7 +40,7 @@ import { dump, load } from 'js-yaml';
 import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { ProcstatMetricDefinition } from '../cloudwatch/metrics-section';
-import { Monitoring } from '../monitoring/alarms';
+import { InfraStackMonitoring } from '../monitoring/alarms';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
 
@@ -396,7 +396,7 @@ export class InfraStack extends Stack {
       value: nlb.loadBalancerDnsName,
     });
 
-    const monitoring = new Monitoring(this, props);
+    const monitoring = new InfraStackMonitoring(this, props.dashboardsUrl);
   }
 
   private static getCfnInitElement(scope: Stack, logGroup: LogGroup, props: infraProps, nodeType?: string): InitElement[] {
