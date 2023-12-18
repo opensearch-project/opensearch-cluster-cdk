@@ -40,6 +40,7 @@ import { dump, load } from 'js-yaml';
 import { join } from 'path';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { ProcstatMetricDefinition } from '../cloudwatch/metrics-section';
+import { InfraStackMonitoring } from '../monitoring/alarms';
 import { nodeConfig } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
 
@@ -72,6 +73,7 @@ export interface infraProps extends StackProps {
   readonly additionalConfig?: string,
   readonly additionalOsdConfig?: string,
   readonly customConfigFiles?: string,
+  readonly enableMonitoring?: boolean,
 }
 
 export class InfraStack extends Stack {
@@ -368,10 +370,13 @@ export class InfraStack extends Stack {
         });
       }
     }
-
     new CfnOutput(this, 'loadbalancer-url', {
       value: nlb.loadBalancerDnsName,
     });
+
+    if (props.enableMonitoring) {
+      const monitoring = new InfraStackMonitoring(this, props.dashboardsUrl);
+    }
   }
 
   private static getCfnInitElement(scope: Stack, logGroup: LogGroup, props: infraProps, nodeType?: string): InitElement[] {
@@ -406,6 +411,12 @@ export class InfraStack extends Stack {
             debug: false,
           },
           metrics: {
+            append_dimensions: {
+              // eslint-disable-next-line no-template-curly-in-string
+              InstanceId: '${aws:InstanceId}',
+            },
+            aggregation_dimensions: [[]], // Create rollups without instance id
+            namespace: `${scope.stackName}/InfraStack`,
             metrics_collected: {
               procstat: procstatConfig,
               cpu: {

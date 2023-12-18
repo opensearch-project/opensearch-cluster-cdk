@@ -26,6 +26,7 @@ test('Test Resources with security disabled multi-node default instance types', 
       additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
       // eslint-disable-next-line max-len
       customConfigFiles: '{"test/data/config.yml": "opensearch/config/opensearch-security/config.yml", "test/data/roles.yml": "opensearch/config/opensearch-security/roles.yml"}',
+      enableMonitoring: true,
     },
   });
 
@@ -50,6 +51,8 @@ test('Test Resources with security disabled multi-node default instance types', 
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
   infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 3);
+  infraTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 4);
+  infraTemplate.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
     Port: 80,
     Protocol: 'TCP',

@@ -217,6 +217,9 @@ export class OsClusterEntrypoint {
       const remoteStore = `${scope.node.tryGetContext('enableRemoteStore')}`;
       const enableRemoteStore = remoteStore === 'true';
 
+      const monitoringAndAlarms = `${scope.node.tryGetContext('enableMonitoring')}`;
+      const enableMonitoring = monitoringAndAlarms === 'true';
+
       const customRoleArn = `${scope.node.tryGetContext('customRoleArn')}`;
 
       let networkStackName = 'opensearch-network-stack';
@@ -277,6 +280,7 @@ export class OsClusterEntrypoint {
         additionalConfig: ymlConfig,
         additionalOsdConfig: osdYmlConfig,
         customConfigFiles,
+        enableMonitoring,
         ...props,
       });
 
