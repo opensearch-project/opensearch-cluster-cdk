@@ -69,11 +69,6 @@ export class OsClusterEntrypoint {
 
       const x64InstanceTypes: string[] = Object.keys(x64Ec2InstanceType);
       const arm64InstanceTypes: string[] = Object.keys(arm64Ec2InstanceType);
-      const vpcId: string = scope.node.tryGetContext('vpcId');
-      const securityGroupId = scope.node.tryGetContext('securityGroupId');
-      const cidrRange = scope.node.tryGetContext('cidr');
-      const restrictServerAccessTo = scope.node.tryGetContext('restrictServerAccessTo');
-      const serverAccessType = scope.node.tryGetContext('serverAccessType');
 
       const distVersion = `${scope.node.tryGetContext('distVersion')}`;
       if (distVersion.toString() === 'undefined') {
@@ -233,12 +228,6 @@ export class OsClusterEntrypoint {
       }
 
       const network = new NetworkStack(scope, networkStackName, {
-        cidrBlock: cidrRange,
-        maxAzs: 3,
-        vpcId,
-        securityGroupId,
-        serverAccessType,
-        restrictServerAccessTo,
         ...props,
       });
 

@@ -14,13 +14,17 @@ import {
 } from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 
-export interface vpcProps extends StackProps{
-    cidrBlock: string,
-    maxAzs: number,
-    vpcId: string,
-    securityGroupId: string,
-    serverAccessType: string,
-    restrictServerAccessTo: string,
+export interface VpcProps extends StackProps{
+    /** CIDR Block for VPC */
+    cidr?: string,
+    /** VPC ID of existing VPC */
+    vpcId?: string,
+    /** Security Group to be used for all sources */
+    securityGroupId?: string,
+    /** The access type to restrict server. Choose from ipv4, ipv6, prefixList or securityGroupId */
+    serverAccessType?: string,
+    /** Restrict server access to */
+    restrictServerAccessTo?: string,
 }
 
 export class NetworkStack extends Stack {
@@ -28,14 +32,32 @@ export class NetworkStack extends Stack {
 
   public readonly osSecurityGroup: ISecurityGroup;
 
-  constructor(scope: Construct, id: string, props: vpcProps) {
-    let serverAccess: IPeer;
+  constructor(scope: Construct, id: string, props: VpcProps) {
     super(scope, id, props);
-    if (props.vpcId === undefined) {
+
+    let serverAccess: IPeer;
+    // Properties and context variables check
+    let cidrRange = `${props?.cidr ?? scope.node.tryGetContext('cidr')}`;
+    if (cidrRange === 'undefined') {
+      cidrRange = '10.0.0.0/16';
+    }
+    const vpcId = `${props?.vpcId ?? scope.node.tryGetContext('vpcId')}`;
+    const serverAccessType = `${props?.serverAccessType ?? scope.node.tryGetContext('serverAccessType')}`;
+    const restrictServerAccessTo = `${props?.restrictServerAccessTo ?? scope.node.tryGetContext('restrictServerAccessTo')}`;
+    const secGroupId = `${props?.securityGroupId ?? scope.node.tryGetContext('securityGroupId')}`;
+
+    if (typeof restrictServerAccessTo === 'undefined' || typeof serverAccessType === 'undefined') {
+      throw new Error('serverAccessType and restrictServerAccessTo parameters are required - eg: serverAccessType=ipv4 restrictServerAccessTo=10.10.10.10/32');
+    } else {
+      serverAccess = NetworkStack.getServerAccess(restrictServerAccessTo, serverAccessType);
+    }
+
+    // VPC specs
+    if (vpcId === 'undefined') {
       console.log('No VPC-Id Provided, a new VPC will be created');
       this.vpc = new Vpc(this, 'opensearchClusterVpc', {
-        cidr: (props.cidrBlock !== undefined) ? props.cidrBlock : '10.0.0.0/16',
-        maxAzs: props.maxAzs,
+        cidr: cidrRange,
+        maxAzs: 3,
         subnetConfiguration: [
           {
             name: 'public-subnet',
@@ -52,23 +74,18 @@ export class NetworkStack extends Stack {
     } else {
       console.log('VPC provided, using existing');
       this.vpc = Vpc.fromLookup(this, 'opensearchClusterVpc', {
-        vpcId: props.vpcId,
+        vpcId,
       });
     }
 
-    if (typeof props.restrictServerAccessTo === 'undefined' || typeof props.serverAccessType === 'undefined') {
-      throw new Error('serverAccessType and restrictServerAccessTo parameters are required - eg: serverAccessType=ipv4 restrictServerAccessTo=10.10.10.10/32');
-    } else {
-      serverAccess = NetworkStack.getServerAccess(props.restrictServerAccessTo, props.serverAccessType);
-    }
-
-    if (props.securityGroupId === undefined) {
+    // Security Group specs
+    if (secGroupId === 'undefined') {
       this.osSecurityGroup = new SecurityGroup(this, 'osSecurityGroup', {
         vpc: this.vpc,
         allowAllOutbound: true,
       });
     } else {
-      this.osSecurityGroup = SecurityGroup.fromSecurityGroupId(this, 'osSecurityGroup', props.securityGroupId);
+      this.osSecurityGroup = SecurityGroup.fromSecurityGroupId(this, 'osSecurityGroup', secGroupId);
     }
 
     /* The security group allows all ip access by default to all the ports.
@@ -88,7 +105,7 @@ export class NetworkStack extends Stack {
     case 'securityGroupId':
       return Peer.securityGroupId(restrictServerAccessTo);
     default:
-      throw new Error('serverAccessType should be one of the below values: ipv4, ipv6, prefixList or  securityGroupId');
+      throw new Error('serverAccessType should be one of the below values: ipv4, ipv6, prefixList or securityGroupId');
     }
   }
 }
