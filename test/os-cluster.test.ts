@@ -527,3 +527,65 @@ test('Throw error on incorrect JSON', () => {
     expect(error.message).toEqual('Encountered following error while parsing customConfigFiles json parameter: SyntaxError: Unexpected token o in JSON at position 25');
   }
 });
+
+test('Throw error when security is enabled and adminPassword is not defined and dist version is greater than or equal to 2.12', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
+    },
+  });
+
+  try {
+    const testStack = new OsClusterEntrypoint(app, {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // eslint-disable-next-line max-len
+    expect(error.message).toEqual('adminPassword parameter is required to be set when security is enabled');
+  }
+});
+
+test('Should not throw error when security is enabled and adminPassword is  defined and dist version is greater than or equal to 2.12', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      adminPassword: 'Admin_1234',
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '2.12.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
+    },
+  });
+
+  // WHEN
+  const testStack = new OsClusterEntrypoint(app, {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  expect(testStack.stacks).toHaveLength(2);
+});

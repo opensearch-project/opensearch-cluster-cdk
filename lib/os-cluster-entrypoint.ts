@@ -84,7 +84,12 @@ export class OsClusterEntrypoint {
       if (securityDisabled !== 'true' && securityDisabled !== 'false') {
         throw new Error('securityEnabled parameter is required to be set as - true or false');
       }
-      const security = securityDisabled === 'true';
+      const insecure = securityDisabled === 'true';
+
+      const adminPassword: String = insecure ? '' : `${scope.node.tryGetContext('adminPassword')}`;
+      if (!insecure && Number.parseFloat(distVersion) >= 2.12 && adminPassword === 'undefined') {
+        throw new Error('adminPassword parameter is required to be set when security is enabled');
+      }
 
       const minDistribution = `${scope.node.tryGetContext('minDistribution')}`;
       if (minDistribution !== 'true' && minDistribution !== 'false') {
@@ -252,7 +257,8 @@ export class OsClusterEntrypoint {
       // @ts-ignore
       const infraStack = new InfraStack(scope, infraStackName, {
         vpc: this.vpc,
-        securityDisabled: security,
+        securityDisabled: insecure,
+        adminPassword,
         opensearchVersion: distVersion,
         clientNodeCount: clientCount,
         cpuArch,
