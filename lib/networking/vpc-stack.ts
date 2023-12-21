@@ -33,8 +33,9 @@ export class NetworkStack extends Stack {
   public readonly osSecurityGroup: ISecurityGroup;
 
   constructor(scope: Construct, id: string, props: VpcProps) {
+    super(scope, id, props);
+    
     let serverAccess: IPeer;
-
     // Properties and context variables check
     let cidrRange = `${props?.cidr ?? scope.node.tryGetContext('cidr')}`;
     if (cidrRange == 'undefined'){
@@ -45,7 +46,13 @@ export class NetworkStack extends Stack {
     let restrictServerAccessTo = `${props?.restrictServerAccessTo ?? scope.node.tryGetContext('restrictServerAccessTo')}`
     let secGroupId = `${props?.securityGroupId ?? scope.node.tryGetContext('securityGroupId')}`
 
-    super(scope, id, props);
+    if (typeof restrictServerAccessTo === 'undefined' || typeof serverAccessType === 'undefined') {
+      throw new Error('serverAccessType and restrictServerAccessTo parameters are required - eg: serverAccessType=ipv4 restrictServerAccessTo=10.10.10.10/32');
+    } else {
+      serverAccess = NetworkStack.getServerAccess(restrictServerAccessTo, serverAccessType);
+    }
+
+    // VPC specs
     if (vpcId === 'undefined') {
       console.log('No VPC-Id Provided, a new VPC will be created');
       this.vpc = new Vpc(this, 'opensearchClusterVpc', {
@@ -71,12 +78,7 @@ export class NetworkStack extends Stack {
       });
     }
 
-    if (typeof restrictServerAccessTo === 'undefined' || typeof serverAccessType === 'undefined') {
-      throw new Error('serverAccessType and restrictServerAccessTo parameters are required - eg: serverAccessType=ipv4 restrictServerAccessTo=10.10.10.10/32');
-    } else {
-      serverAccess = NetworkStack.getServerAccess(restrictServerAccessTo, serverAccessType);
-    }
-
+    // Security Group specs
     if (secGroupId === 'undefined') {
       this.osSecurityGroup = new SecurityGroup(this, 'osSecurityGroup', {
         vpc: this.vpc,
