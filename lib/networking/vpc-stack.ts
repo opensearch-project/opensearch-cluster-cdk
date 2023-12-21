@@ -34,17 +34,17 @@ export class NetworkStack extends Stack {
 
   constructor(scope: Construct, id: string, props: VpcProps) {
     super(scope, id, props);
-    
+
     let serverAccess: IPeer;
     // Properties and context variables check
     let cidrRange = `${props?.cidr ?? scope.node.tryGetContext('cidr')}`;
-    if (cidrRange == 'undefined'){
-      cidrRange = '10.0.0.0/16'
+    if (cidrRange === 'undefined') {
+      cidrRange = '10.0.0.0/16';
     }
-    let vpcId = `${props?.vpcId ?? scope.node.tryGetContext('vpcId')}`;
-    let serverAccessType = `${props?.serverAccessType ?? scope.node.tryGetContext('serverAccessType')}`
-    let restrictServerAccessTo = `${props?.restrictServerAccessTo ?? scope.node.tryGetContext('restrictServerAccessTo')}`
-    let secGroupId = `${props?.securityGroupId ?? scope.node.tryGetContext('securityGroupId')}`
+    const vpcId = `${props?.vpcId ?? scope.node.tryGetContext('vpcId')}`;
+    const serverAccessType = `${props?.serverAccessType ?? scope.node.tryGetContext('serverAccessType')}`;
+    const restrictServerAccessTo = `${props?.restrictServerAccessTo ?? scope.node.tryGetContext('restrictServerAccessTo')}`;
+    const secGroupId = `${props?.securityGroupId ?? scope.node.tryGetContext('securityGroupId')}`;
 
     if (typeof restrictServerAccessTo === 'undefined' || typeof serverAccessType === 'undefined') {
       throw new Error('serverAccessType and restrictServerAccessTo parameters are required - eg: serverAccessType=ipv4 restrictServerAccessTo=10.10.10.10/32');
@@ -74,7 +74,7 @@ export class NetworkStack extends Stack {
     } else {
       console.log('VPC provided, using existing');
       this.vpc = Vpc.fromLookup(this, 'opensearchClusterVpc', {
-        vpcId: vpcId,
+        vpcId,
       });
     }
 
