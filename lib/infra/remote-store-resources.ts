@@ -1,6 +1,6 @@
 import { RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
-import { Effect, Policy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 export class RemoteStoreResources {
     private readonly snapshotS3Bucket: Bucket
@@ -11,7 +11,7 @@ export class RemoteStoreResources {
       this.snapshotS3Bucket = new Bucket(scope, `remote-store-${scope.stackName}`, {
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
-        bucketName: `${scope.stackName}`,
+        bucketName: `${scope.stackName.toLowerCase()}`,
       });
 
       this.bucketPolicyStatement = new PolicyStatement({
