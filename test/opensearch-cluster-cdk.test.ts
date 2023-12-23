@@ -703,3 +703,36 @@ test('Throw error when security is enabled and adminPassword is not defined and 
     expect(error.message).toEqual('adminPassword parameter is required to be set when security is enabled');
   }
 });
+
+test('Should not throw error when security is enabled and adminPassword is  defined and dist version is greater than or equal to 2.12', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      adminPassword: 'Admin_1234',
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '2.12.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+});
