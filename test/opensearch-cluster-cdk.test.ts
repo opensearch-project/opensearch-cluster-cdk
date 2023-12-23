@@ -37,7 +37,7 @@ test('Test Resources with security disabled multi-node default instance types', 
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: netStack.vpc,
+    vpc: netStack.vpc,
     securityGroup: netStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
@@ -102,7 +102,7 @@ test('Test Resources with security disabled multi-node default instance types us
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: netStack.vpc,
+    vpc: netStack.vpc,
     securityGroup: netStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
     securityDisabled: true,
@@ -194,7 +194,7 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: networkStack.vpc,
+    vpc: networkStack.vpc,
     securityGroup: networkStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
@@ -276,7 +276,7 @@ test('Test Resources with security enabled single-node cluster', () => {
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: networkStack.vpc,
+    vpc: networkStack.vpc,
     securityGroup: networkStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
@@ -337,7 +337,7 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
 
     // @ts-ignore
     const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-      vpcId: networkStack.vpc,
+      vpc: networkStack.vpc,
       securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
@@ -379,7 +379,7 @@ test('Throw error on ec2 instance outside of enum list', () => {
 
     // @ts-ignore
     const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-      vpcId: networkStack.vpc,
+      vpc: networkStack.vpc,
       securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
@@ -420,7 +420,7 @@ test('Test multi-node cluster with only data-nodes', () => {
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: networkStack.vpc,
+    vpc: networkStack.vpc,
     securityGroup: networkStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
@@ -475,7 +475,7 @@ test('Test multi-node cluster with remote-store enabled', () => {
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: networkStack.vpc,
+    vpc: networkStack.vpc,
     securityGroup: networkStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
@@ -568,7 +568,7 @@ test('Throw error on unsupported ebs volume type', () => {
 
     // @ts-ignore
     const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-      vpcId: networkStack.vpc,
+      vpc: networkStack.vpc,
       securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
@@ -609,7 +609,7 @@ test('Test multi-node cluster with custom IAM Role', () => {
 
   // @ts-ignore
   const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-    vpcId: networkStack.vpc,
+    vpc: networkStack.vpc,
     securityGroup: networkStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
@@ -649,7 +649,7 @@ test('Throw error on incorrect JSON', () => {
 
     // @ts-ignore
     const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-      vpcId: networkStack.vpc,
+      vpc: networkStack.vpc,
       securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
@@ -690,7 +690,7 @@ test('Throw error when security is enabled and adminPassword is not defined and 
 
     // @ts-ignore
     const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
-      vpcId: networkStack.vpc,
+      vpc: networkStack.vpc,
       securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });

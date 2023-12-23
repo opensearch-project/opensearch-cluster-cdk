@@ -33,7 +33,7 @@ const networkStack = new NetworkStack(app, networkStackName, {
 
 // @ts-ignore
 const infraStack = new InfraStack(app, infraStackName, {
-  vpcId: networkStack.vpc,
+  vpc: networkStack.vpc,
   securityGroup: networkStack.osSecurityGroup,
   env: { account, region },
 });

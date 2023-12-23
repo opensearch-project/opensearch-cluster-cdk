@@ -65,34 +65,63 @@ const getInstanceType = (instanceType: string, arch: string) => {
 };
 
 export interface InfraProps extends StackProps {
-  readonly vpcId: IVpc,
+  /** VPC used for deploying all resources */
+  readonly vpc: IVpc,
+  /** Security group required for all resources */
   readonly securityGroup: ISecurityGroup,
+  /** OpenSearch Distribution version */
   readonly distVersion?: string,
+  /** CPU architecture to deploy all EC2 */
   readonly cpuArch?: string,
+  /** Security enabled or disabled for the cluster */
   readonly securityDisabled?: boolean,
+  /** Admin password for your cluster */
   readonly adminPassword?: string,
+  /** Whether it is a min distribution */
   readonly minDistribution?: boolean,
+  /** URL to download OpenSearch distribution from */
   readonly distributionUrl?: string,
+  /** URL to download opensearch dashboards distribution from */
   readonly dashboardsUrl?: string,
+  /** Whether it is a single node cluster */
   readonly singleNodeCluster?: boolean,
+  /** Number of manager nodes */
   readonly managerNodeCount?: number,
+  /** Number of data nodes */
   readonly dataNodeCount?: number,
+  /** Number of ingest nodes */
   readonly ingestNodeCount?: number,
+  /** Number of client nodes */
   readonly clientNodeCount?: number,
+  /** Number of ml modes */
   readonly mlNodeCount?: number,
+  /** EBS block storage size for data nodes */
   readonly dataNodeStorage?: number,
+  /** EBS block storage size for ml nodes */
   readonly mlNodeStorage?: number,
+  /** EC2 instance type for data nodes */
   readonly dataInstanceType?: InstanceType,
+  /** EC2 instance type for ML nodes */
   readonly mlInstanceType?: InstanceType,
+  /** Whether to use 50% heap */
   readonly use50PercentHeap?: boolean,
+  /** Whether the cluster should be internal only */
   readonly isInternal?: boolean,
+  /** Whether to enable remote store feature */
   readonly enableRemoteStore?: boolean,
+  /** EBS volume type for all nodes */
   readonly storageVolumeType?: EbsDeviceVolumeType,
+  /** Custom role to use as EC2 instance profile */
   readonly customRoleArn?: string,
+  /** JVM system properties */
   readonly jvmSysProps?: string,
+  /** Any additional config to add to opensearch.yml */
   readonly additionalConfig?: string,
+  /** Any additional config to add to opensearch-dashboards.yml */
   readonly additionalOsdConfig?: string,
+  /** Add any custom configuration files to the cluster */
   readonly customConfigFiles?: string,
+  /** Whether to enable monioring with alarms */
   readonly enableMonitoring?: boolean,
 }
 
@@ -352,7 +381,7 @@ export class InfraStack extends Stack {
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
 
     const nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
-      vpc: props.vpcId,
+      vpc: props.vpc,
       internetFacing: (!this.isInternal),
       crossZoneEnabled: true,
     });
@@ -379,7 +408,7 @@ export class InfraStack extends Stack {
     if (this.singleNodeCluster) {
       console.log('Single node value is true, creating single node configurations');
       singleNodeInstance = new Instance(this, 'single-node-instance', {
-        vpc: props.vpcId,
+        vpc: props.vpc,
         instanceType: singleNodeInstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
@@ -428,7 +457,7 @@ export class InfraStack extends Stack {
 
       if (managerAsgCapacity > 0) {
         const managerNodeAsg = new AutoScalingGroup(this, 'managerNodeAsg', {
-          vpc: props.vpcId,
+          vpc: props.vpc,
           instanceType: defaultInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
@@ -461,7 +490,7 @@ export class InfraStack extends Stack {
       }
 
       const seedNodeAsg = new AutoScalingGroup(this, 'seedNodeAsg', {
-        vpc: props.vpcId,
+        vpc: props.vpc,
         instanceType: (seedConfig === 'seed-manager') ? defaultInstanceType : this.dataInstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
@@ -490,7 +519,7 @@ export class InfraStack extends Stack {
       Tags.of(seedNodeAsg).add('role', 'manager');
 
       const dataNodeAsg = new AutoScalingGroup(this, 'dataNodeAsg', {
-        vpc: props.vpcId,
+        vpc: props.vpc,
         instanceType: this.dataInstanceType,
         machineImage: MachineImage.latestAmazonLinux({
           generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
@@ -521,7 +550,7 @@ export class InfraStack extends Stack {
         clientNodeAsg = dataNodeAsg;
       } else {
         clientNodeAsg = new AutoScalingGroup(this, 'clientNodeAsg', {
-          vpc: props.vpcId,
+          vpc: props.vpc,
           instanceType: defaultInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
@@ -553,7 +582,7 @@ export class InfraStack extends Stack {
 
       if (this.mlNodeCount > 0) {
         const mlNodeAsg = new AutoScalingGroup(this, 'mlNodeAsg', {
-          vpc: props.vpcId,
+          vpc: props.vpc,
           instanceType: this.mlInstanceType,
           machineImage: MachineImage.latestAmazonLinux({
             generation: AmazonLinuxGeneration.AMAZON_LINUX_2,
