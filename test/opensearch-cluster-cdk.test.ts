@@ -7,11 +7,11 @@ compatible open source license. */
 
 import { App } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
-import { OsClusterEntrypoint } from '../lib/os-cluster-entrypoint';
+import { InfraStack } from '../lib/infra/infra-stack';
+import { NetworkStack } from '../lib/networking/vpc-stack';
 
 test('Test Resources with security disabled multi-node default instance types', () => {
   const app = new App({
-
     context: {
       securityDisabled: true,
       minDistribution: false,
@@ -31,18 +31,99 @@ test('Test Resources with security disabled multi-node default instance types', 
   });
 
   // WHEN
-  const securityDisabledStack = new OsClusterEntrypoint(app, {
+  const netStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: netStack.vpc,
+    securityGroup: netStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
 
   // THEN
-  expect(securityDisabledStack.stacks).toHaveLength(2);
-  const networkStack = securityDisabledStack.stacks.filter((s) => s.stackName === 'opensearch-network-stack')[0];
-  const networkTemplate = Template.fromStack(networkStack);
+  const networkTemplate = Template.fromStack(netStack);
   networkTemplate.resourceCountIs('AWS::EC2::VPC', 1);
   networkTemplate.resourceCountIs('AWS::EC2::SecurityGroup', 1);
 
-  const infraStack = securityDisabledStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.resourceCountIs('AWS::Logs::LogGroup', 1);
+  infraTemplate.resourceCountIs('AWS::IAM::Role', 1);
+  infraTemplate.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 3);
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
+  infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 3);
+  infraTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 4);
+  infraTemplate.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 80,
+    Protocol: 'TCP',
+  });
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 8443,
+    Protocol: 'TCP',
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    InstanceType: 'r5.xlarge',
+    IamInstanceProfile: {
+      Ref: 'dataNodeAsgInstanceProfileEC27E8D1',
+    },
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    InstanceType: 'c5.xlarge',
+    IamInstanceProfile: {
+      Ref: 'seedNodeAsgInstanceProfile6F1EA4FF',
+    },
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    InstanceType: 'c5.xlarge',
+    IamInstanceProfile: {
+      Ref: 'managerNodeAsgInstanceProfile1415C2CF',
+    },
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
+    MetadataOptions: {
+      HttpTokens: 'required',
+    },
+  });
+});
+
+test('Test Resources with security disabled multi-node default instance types using class properties', () => {
+  const app = new App({});
+
+  // WHEN
+  const netStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+    serverAccessType: 'ipv4',
+    restrictServerAccessTo: 'all',
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: netStack.vpc,
+    securityGroup: netStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+    securityDisabled: true,
+    minDistribution: false,
+    distributionUrl: 'www.example.com',
+    cpuArch: 'x64',
+    singleNodeCluster: false,
+    dashboardsUrl: 'www.example.com',
+    distVersion: '1.0.0',
+    additionalConfig: '{ "name": "John Doe", "age": 30, "email": "johndoe@example.com" }',
+    additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
+    // eslint-disable-next-line max-len
+    customConfigFiles: '{"test/data/config.yml": "opensearch/config/opensearch-security/config.yml", "test/data/roles.yml": "opensearch/config/opensearch-security/roles.yml"}',
+    enableMonitoring: true,
+  });
+
+  // THEN
+  const networkTemplate = Template.fromStack(netStack);
+  networkTemplate.resourceCountIs('AWS::EC2::VPC', 1);
+  networkTemplate.resourceCountIs('AWS::EC2::SecurityGroup', 1);
+
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::Logs::LogGroup', 1);
   infraTemplate.resourceCountIs('AWS::IAM::Role', 1);
@@ -107,11 +188,17 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
   });
 
   // WHEN
-  const securityEnabledStack = new OsClusterEntrypoint(app, {
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
     env: { account: 'test-account', region: 'us-east-1' },
   });
-  expect(securityEnabledStack.stacks).toHaveLength(2);
-  const networkStack = securityEnabledStack.stacks.filter((s) => s.stackName === 'opensearch-network-stack')[0];
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
   const networkTemplate = Template.fromStack(networkStack);
   networkTemplate.resourceCountIs('AWS::EC2::VPC', 0);
   networkTemplate.resourceCountIs('AWS::EC2::SecurityGroup', 1);
@@ -126,7 +213,6 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
     ],
   });
 
-  const infraStack = securityEnabledStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 4);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
@@ -184,16 +270,20 @@ test('Test Resources with security enabled single-node cluster', () => {
   });
 
   // WHEN
-  const singleNodeStack = new OsClusterEntrypoint(app, {
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
     env: { account: 'test-account', region: 'us-east-1' },
   });
-  expect(singleNodeStack.stacks).toHaveLength(2);
-  const networkStack = singleNodeStack.stacks.filter((s) => s.stackName === 'opensearch-network-stack')[0];
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
   const networkTemplate = Template.fromStack(networkStack);
   networkTemplate.resourceCountIs('AWS::EC2::VPC', 1);
   networkTemplate.resourceCountIs('AWS::EC2::SecurityGroup', 1);
 
-  const infraStack = singleNodeStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
     Port: 443,
@@ -240,7 +330,15 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   });
   // WHEN
   try {
-    const testStack = new OsClusterEntrypoint(app, {
+  // WHEN
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
 
@@ -248,8 +346,10 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
-    // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,r6g.4xlarge,r6g.8xlarge,g5g.large,g5g.xlarge');
+    // @ts-ignore
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: '
+    + 'm6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,r6g.4xlarge,r6g.8xlarge,'
+    + 'g5g.large,g5g.xlarge');
   }
 });
 
@@ -272,7 +372,15 @@ test('Throw error on ec2 instance outside of enum list', () => {
   });
   // WHEN
   try {
-    const testStack = new OsClusterEntrypoint(app, {
+  // WHEN
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
 
@@ -280,8 +388,10 @@ test('Throw error on ec2 instance outside of enum list', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
-    // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,r5.2xlarge,r5.4xlarge,r5.8xlarge,g5.large,g5.xlarge,i3.large,i3.xlarge,i3.2xlarge,i3.4xlarge,i3.8xlarge,inf1.xlarge,inf1.2xlarge');
+    // @ts-ignore
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: '
+    + 'm5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,r5.2xlarge,r5.4xlarge,r5.8xlarge,g5.large,'
+    + 'g5.xlarge,i3.large,i3.xlarge,i3.2xlarge,i3.4xlarge,i3.8xlarge,inf1.xlarge,inf1.2xlarge');
   }
 });
 
@@ -304,14 +414,17 @@ test('Test multi-node cluster with only data-nodes', () => {
   });
 
   // WHEN
-  const testStack = new OsClusterEntrypoint(app, {
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
     env: { account: 'test-account', region: 'us-east-1' },
   });
 
-  // THEN
-  expect(testStack.stacks).toHaveLength(2);
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
 
-  const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 2);
   infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 2);
@@ -356,14 +469,16 @@ test('Test multi-node cluster with remote-store enabled', () => {
   });
 
   // WHEN
-  const testStack = new OsClusterEntrypoint(app, {
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
     env: { account: 'test-account', region: 'us-east-1' },
   });
 
-  // THEN
-  expect(testStack.stacks).toHaveLength(2);
-
-  const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::S3::Bucket', 1);
   infraTemplate.resourceCountIs('AWS::S3::BucketPolicy', 1);
@@ -447,7 +562,14 @@ test('Throw error on unsupported ebs volume type', () => {
   });
   // WHEN
   try {
-    const testStack = new OsClusterEntrypoint(app, {
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
 
@@ -455,8 +577,9 @@ test('Throw error on unsupported ebs volume type', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
-    // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid volume type provided, please provide any one of the following: standard, gp2, gp3');
+    // @ts-ignore
+    expect(error.message).toEqual('Invalid volume type provided, please provide any one of the following: '
+    + 'standard, gp2, gp3');
   }
 });
 
@@ -480,14 +603,18 @@ test('Test multi-node cluster with custom IAM Role', () => {
   });
 
   // WHEN
-  const testStack = new OsClusterEntrypoint(app, {
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
     env: { account: 'test-account', region: 'us-east-1' },
   });
 
   // THEN
-  expect(testStack.stacks).toHaveLength(2);
-
-  const infraStack = testStack.stacks.filter((s) => s.stackName === 'opensearch-infra-stack')[0];
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::IAM::Role', 0);
   infraTemplate.hasResourceProperties('AWS::IAM::InstanceProfile', {
@@ -515,7 +642,15 @@ test('Throw error on incorrect JSON', () => {
   });
   // WHEN
   try {
-    const testStack = new OsClusterEntrypoint(app, {
+    // WHEN
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
 
@@ -523,8 +658,9 @@ test('Throw error on incorrect JSON', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
-    // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Encountered following error while parsing customConfigFiles json parameter: SyntaxError: Unexpected token o in JSON at position 25');
+    // @ts-ignore
+    expect(error.message).toEqual('Encountered following error while parsing customConfigFiles json parameter: '
+    + 'SyntaxError: Unexpected token o in JSON at position 25');
   }
 });
 
@@ -548,7 +684,14 @@ test('Throw error when security is enabled and adminPassword is not defined and 
   });
 
   try {
-    const testStack = new OsClusterEntrypoint(app, {
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
       env: { account: 'test-account', region: 'us-east-1' },
     });
 
@@ -556,7 +699,7 @@ test('Throw error when security is enabled and adminPassword is not defined and 
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
-    // eslint-disable-next-line max-len
+    // @ts-ignore
     expect(error.message).toEqual('adminPassword parameter is required to be set when security is enabled');
   }
 });
@@ -582,10 +725,14 @@ test('Should not throw error when security is enabled and adminPassword is  defi
   });
 
   // WHEN
-  const testStack = new OsClusterEntrypoint(app, {
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
     env: { account: 'test-account', region: 'us-east-1' },
   });
 
-  // THEN
-  expect(testStack.stacks).toHaveLength(2);
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
 });
