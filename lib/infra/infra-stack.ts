@@ -38,6 +38,7 @@ import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { readFileSync } from 'fs';
 import { dump, load } from 'js-yaml';
 import { join } from 'path';
+import { satisfies } from 'semver';
 import { CloudwatchAgent } from '../cloudwatch/cloudwatch-agent';
 import { ProcstatMetricDefinition } from '../cloudwatch/metrics-section';
 import { InfraStackMonitoring } from '../monitoring/alarms';
@@ -206,7 +207,7 @@ export class InfraStack extends Stack {
     this.securityDisabled = securityDisabled === 'true';
 
     this.adminPassword = this.securityDisabled ? '' : `${props?.adminPassword ?? scope.node.tryGetContext('adminPassword')}`;
-    if (!this.securityDisabled && Number.parseFloat(this.distVersion) >= 2.12 && this.adminPassword === 'undefined') {
+    if (!this.securityDisabled && satisfies(this.distVersion, '>=2.12.0') && this.adminPassword === 'undefined') {
       throw new Error('adminPassword parameter is required to be set when security is enabled');
     }
 
