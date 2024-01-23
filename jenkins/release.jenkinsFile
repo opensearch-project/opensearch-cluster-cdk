@@ -6,6 +6,7 @@ lib = library(identifier: 'jenkins@6.0.0', retriever: modernSCM([
 standardReleasePipelineWithGenericTrigger(
     tokenIdCredential: 'jenkins-opensearch-cluster-cdk-generic-webhook-token',
     causeString: 'A tag was cut on opensearch-project/opensearch-cluster-cdk repository causing this workflow to run',
+    downloadReleaseAsset: true,
     publishRelease: true) {
         publishToNpm(
             publicationType: 'artifact',
