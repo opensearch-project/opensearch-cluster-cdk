@@ -7,5 +7,8 @@ standardReleasePipelineWithGenericTrigger(
     tokenIdCredential: 'jenkins-opensearch-cluster-cdk-generic-webhook-token',
     causeString: 'A tag was cut on opensearch-project/opensearch-cluster-cdk repository causing this workflow to run',
     publishRelease: true) {
-        publishToNpm(publicationType: 'github')
+        publishToNpm(
+            publicationType: 'artifact',
+            artifactPath: "${WORKSPACE}/publish-cluster-cdk/opensearch-cluster-cdk.tar.gz"
+            )
     }
