@@ -26,8 +26,22 @@ jobs:
           issue-title: 'Release opensearch-cluster-cdk : ${{ steps.get_data.outputs.version }}'
           issue-body: "Please approve or deny the release of opensearch-cluster-cdk. **VERSION**: ${{ steps.get_data.outputs.version }} **TAG**: ${{ github.ref_name }}  **COMMIT**: ${{ github.sha }}"
           exclude-workflow-initiator-as-approver: true
-      - name: Release
+      - name: Set up node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.16.0
+          registry-url: 'https://registry.npmjs.org'
+      - name: Build and package
+        run: |
+          npm install && npm run build
+          npm pack
+          filename=`ls | grep opensearch-project-opensearch-cluster-cdk`
+          mkdir publish-cluster-cdk && mv $filename publish-cluster-cdk/opensearch-cluster-cdk.tar.gz
+          tar -cvf artifacts.tar.gz publish-cluster-cdk
+      - name: Draft a release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
           generate_release_notes: true
+          files: |
+            artifacts.tar.gz
