@@ -768,3 +768,62 @@ test('Should not throw error when security is enabled and version is less than 2
     env: { account: 'test-account', region: 'us-east-1' },
   });
 });
+
+test('Test additionalConfig overriding values', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      managerNodeCount: 0,
+      dataNodeCount: 3,
+      dataNodeStorage: 200,
+      customRoleArn: 'arn:aws:iam::12345678:role/customRoleName',
+      additionalConfig: '{ "cluster.name": "custom-cdk", "network.port": "8041" }',
+      additionalOsdConfig: '{ "something.enabled": "true", "something_else.enabled": "false" }',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.resourceCountIs('AWS::IAM::Role', 0);
+  infraTemplate.hasResource('AWS::AutoScaling::AutoScalingGroup', {
+    /* eslint-disable max-len */
+    Metadata: {
+      'AWS::CloudFormation::Init': {
+        config: {
+          commands: {
+            '011': {
+              command: "set -ex; cd opensearch/config; echo \"cluster.name: custom-cdk\nnetwork.port: '8041'\n\">additionalConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch.yml additionalConfig.yml -P",
+              cwd: '/home/ec2-user',
+              ignoreErrors: false,
+            },
+            '016': {
+              command: "set -ex;cd opensearch-dashboards/config; echo \"something.enabled: 'true'\nsomething_else.enabled: 'false'\n\">additionalOsdConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch_dashboards.yml additionalOsdConfig.yml -P",
+              cwd: '/home/ec2-user',
+              ignoreErrors: false,
+            },
+          },
+        },
+      },
+    },
+  });
+});
