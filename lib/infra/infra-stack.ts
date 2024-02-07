@@ -657,6 +657,8 @@ export class InfraStack extends Stack {
 
     const cfnInitConfig: InitElement[] = [
       InitPackage.yum('amazon-cloudwatch-agent'),
+      InitCommand.shellCommand('sudo wget -nv https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 '
+      + '-O /usr/bin/yq && sudo chmod +x /usr/bin/yq'),
       CloudwatchAgent.asInitFile('/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json',
         {
           agent: {
@@ -875,11 +877,12 @@ export class InfraStack extends Stack {
     }
 
     if (this.additionalConfig.toString() !== 'undefined') {
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; echo "${this.additionalConfig}">>config/opensearch.yml`,
-        {
-          cwd: '/home/ec2-user',
-          ignoreErrors: false,
-        }));
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch/config; echo "${this.additionalConfig}">additionalConfig.yml; `
+      + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml additionalConfig.yml -P',
+      {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
     }
 
     if (this.customConfigFiles !== 'undefined') {
@@ -907,12 +910,12 @@ export class InfraStack extends Stack {
           ignoreErrors: false,
         }));
     } else {
-      // eslint-disable-next-line max-len
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
-        {
-          cwd: '/home/ec2-user',
-          ignoreErrors: false,
-        }));
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; '
+      + `sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
+      {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
     }
 
     // If OpenSearch-Dashboards URL is present
@@ -941,11 +944,12 @@ export class InfraStack extends Stack {
       }
 
       if (this.additionalOsdConfig.toString() !== 'undefined') {
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards; echo "${this.additionalOsdConfig}">>config/opensearch_dashboards.yml`,
-          {
-            cwd: '/home/ec2-user',
-            ignoreErrors: false,
-          }));
+        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards/config; echo "${this.additionalOsdConfig}">additionalOsdConfig.yml; `
+        + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch_dashboards.yml additionalOsdConfig.yml -P',
+        {
+          cwd: '/home/ec2-user',
+          ignoreErrors: false,
+        }));
       }
 
       // Starting OpenSearch-Dashboards

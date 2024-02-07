@@ -1,20 +1,24 @@
 # CDK for deploying single-node and multi-node OpenSearch cluster with OpenSearch Dashboards
 
-- [Getting Started](#getting-started)
-- [Deployment](#deployment)
-  - [Required context parameters](#required-context-parameters)
-  - [Interacting with OpenSearch cluster](#interacting-with-opensearch-cluster)
-  - [Restricting Server Access](#restricting-server-access)
-  - [Enable Remote Store Feature](#enable-remote-store-feature)
-- [Check Logs](#check-logs)
-- [Access EC2 Instances](#access-ec2-instances)
-- [Port Mapping](#port-mapping)
-- [Teardown](#teardown)
-- [Contributing](#contributing)
-- [Getting Help](#getting-help)
-- [Code of Conduct](#code-of-conduct)
-- [Security](#security)
-- [License](#license)
+- [CDK for deploying single-node and multi-node OpenSearch cluster with OpenSearch Dashboards](#cdk-for-deploying-single-node-and-multi-node-opensearch-cluster-with-opensearch-dashboards)
+  - [Getting Started](#getting-started)
+  - [Deployment](#deployment)
+    - [Required context parameters](#required-context-parameters)
+      - [Sample command to set up multi-node cluster with security enabled on x64 AL2 machine](#sample-command-to-set-up-multi-node-cluster-with-security-enabled-on-x64-al2-machine)
+    - [Interacting with OpenSearch cluster](#interacting-with-opensearch-cluster)
+      - [Sample commands](#sample-commands)
+    - [Restricting Server Access](#restricting-server-access)
+      - [Please note the load-balancer url is internet facing and can be accessed by anyone.](#please-note-the-load-balancer-url-is-internet-facing-and-can-be-accessed-by-anyone)
+    - [Enable Remote Store Feature](#enable-remote-store-feature)
+  - [Check logs](#check-logs)
+  - [Access EC2 Instances](#access-ec2-instances)
+  - [Port Mapping](#port-mapping)
+  - [Teardown](#teardown)
+  - [Contributing](#contributing)
+  - [Getting Help](#getting-help)
+  - [Code of Conduct](#code-of-conduct)
+  - [Security](#security)
+  - [License](#license)
 
 This project enables user to deploy either a single-node or a multi-node OpenSearch cluster.
 There are two stacks that get deployed:
@@ -56,8 +60,8 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | dataInstanceType              | Optional    | string                                                                    | EC2 instance type for data node. Defaults to r5.xlarge. See options in `lib/opensearch-config/node-config.ts` for available options. E.g., `-c dataInstanceType=m5.xlarge`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | mlInstanceType                | Optional    | string                                                                    | EC2 instance type for ml node. Defaults to r5.xlarge. See options in `lib/opensearch-config/node-config.ts` for available options. E.g., `-c mlInstanceType=m5.xlarge`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | jvmSysProps                   | Optional    | string                                                                    | A comma-separated list of key=value pairs that will be added to `jvm.options` as JVM system properties.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| additionalConfig              | Optional    | string                                                                    | Additional opensearch.yml config parameters passed as JSON. e.g., `--context additionalConfig='{"plugins.security.nodes_dn": ["CN=*.example.com, OU=SSL, O=Test, L=Test, C=DE", "CN=node.other.com, OU=SSL, O=Test, L=Test, C=DE"], "plugins.security.nodes_dn_dynamic_config_enabled": false}'`                                                                                                                                                                                                                                                                                                                                             |
-| additionalOsdConfig           | Optional    | string                                                                    | Additional opensearch_dashboards.yml config parameters passed as JSON. e.g., `additionalOsdConfig='{"data.search.usageTelemetry.enabled": "true"}'`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| additionalConfig              | Optional    | string                                                                    | Additional opensearch.yml config parameters passed as JSON. Please be aware that this JSON merges with original opensearch.yml overwriting duplicate keys e.g., `--context additionalConfig='{"plugins.security.nodes_dn": ["CN=*.example.com, OU=SSL, O=Test, L=Test, C=DE", "CN=node.other.com, OU=SSL, O=Test, L=Test, C=DE"], "plugins.security.nodes_dn_dynamic_config_enabled": false}'`                                                                                                                                                                                                                                                                                                                                             |
+| additionalOsdConfig           | Optional    | string                                                                    | Additional opensearch_dashboards.yml config parameters passed as JSON. Please be aware that this JSON merges with original opensearch-dashboards.yml overwriting duplicate keys. e.g., `additionalOsdConfig='{"data.search.usageTelemetry.enabled": "true"}'`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | suffix                        | Optional    | string                                                                    | An optional string identifier to be concatenated with infra stack name.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | networkStackSuffix (Optional) | string      | An optional string identifier to be concatenated with network stack name. |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | region                        | Optional    | string                                                                    | User provided aws region                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
