@@ -426,7 +426,7 @@ export class InfraStack extends Stack {
         }],
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup)),
         initOptions: {
-          ignoreFailures: true,
+          ignoreFailures: false,
         },
         requireImdsv2: true,
       });
