@@ -657,8 +657,9 @@ export class InfraStack extends Stack {
 
     const cfnInitConfig: InitElement[] = [
       InitPackage.yum('amazon-cloudwatch-agent'),
-      InitCommand.shellCommand('sudo wget -nv https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64 '
-      + '-O /usr/bin/yq && sudo chmod +x /usr/bin/yq'),
+      InitCommand.shellCommand('arc=$(arch); if [ "$arc" == "aarch64" ]; then dist="arm64"; else dist="amd64"; fi; '
+          + 'sudo wget -nv https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_$dist '
+      + '-O /usr/bin/yq && sudo chmod 755 /usr/bin/yq'),
       CloudwatchAgent.asInitFile('/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json',
         {
           agent: {
