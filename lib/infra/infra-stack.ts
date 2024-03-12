@@ -29,7 +29,8 @@ import {
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
 import {
-  ListenerCertificate, NetworkListener, NetworkLoadBalancer, Protocol,
+  ListenerCertificate,
+  NetworkListener, NetworkLoadBalancer, Protocol,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import {
@@ -128,6 +129,10 @@ export interface InfraProps extends StackProps {
   readonly enableMonitoring?: boolean,
    /** Certificate ARN to attach to the listener */
    readonly certificateArn ?: string
+   /** Map opensearch port on load balancer to */
+   readonly mapOpensearchPortTo ?: number
+   /** Map opensearch-dashboards port on load balancer to */
+   readonly mapOpensearchDashboardsPortTo ?: number
 }
 
 export class InfraStack extends Stack {
@@ -187,9 +192,12 @@ export class InfraStack extends Stack {
 
   private enableMonitoring: boolean;
 
+  private opensearchPortMapping: number;
+
+  private opensearchDashboardsPortMapping: number;
+
   constructor(scope: Stack, id: string, props: InfraProps) {
     super(scope, id, props);
-    let opensearchListener: NetworkListener;
     let dashboardsListener: NetworkListener;
     let managerAsgCapacity: number;
     let dataAsgCapacity: number;
@@ -393,24 +401,37 @@ export class InfraStack extends Stack {
       crossZoneEnabled: true,
     });
 
+    const opensearchPortMap = `${props?.mapOpensearchPortTo ?? scope.node.tryGetContext('mapOpensearchPortTo')}`;
+    if (opensearchPortMap === 'undefined') {
+      if (!this.securityDisabled && !this.minDistribution) {
+        this.opensearchPortMapping = 443;
+      } else {
+        this.opensearchPortMapping = 80;
+      }
+    } else {
+      this.opensearchPortMapping = parseInt(opensearchPortMap, 10);
+    }
+
+    const opensearchListener = nlb.addListener('opensearch', {
+      port: this.opensearchPortMapping,
+      protocol: Protocol.TCP,
+    });
     if (!this.securityDisabled && !this.minDistribution) {
-      opensearchListener = nlb.addListener('opensearch', {
-        port: 443,
-        protocol: Protocol.TCP,
-      });
       if (certificateArn !== 'undefined') {
         opensearchListener.addCertificates('cert', [ListenerCertificate.fromArn(certificateArn)]);
       }
+    }
+
+    const opensearchDashboardsPortMap = `${props?.mapOpensearchDashboardsPortTo ?? scope.node.tryGetContext('mapOpensearchDashboardsPortTo')}`;
+    if (opensearchDashboardsPortMap === 'undefined') {
+      this.opensearchDashboardsPortMapping = 8443;
     } else {
-      opensearchListener = nlb.addListener('opensearch', {
-        port: 80,
-        protocol: Protocol.TCP,
-      });
+      this.opensearchDashboardsPortMapping = parseInt(opensearchDashboardsPortMap, 10);
     }
 
     if (this.dashboardsUrl !== 'undefined') {
       dashboardsListener = nlb.addListener('dashboards', {
-        port: 8443,
+        port: this.opensearchDashboardsPortMapping,
         protocol: Protocol.TCP,
       });
     }

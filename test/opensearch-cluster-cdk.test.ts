@@ -828,7 +828,7 @@ test('Test additionalConfig overriding values', () => {
   });
 });
 
-test('Test certificate addition', () => {
+test('Test certificate addition and port mapping', () => {
   const app = new App({
     context: {
       securityDisabled: false,
@@ -841,6 +841,8 @@ test('Test certificate addition', () => {
       serverAccessType: 'ipv4',
       restrictServerAccessTo: 'all',
       certificateArn: 'arn:1234',
+      mapOpensearchPortTo: '8440',
+      mapOpensearchDashboardsPortTo: '443',
     },
   });
 
@@ -859,10 +861,55 @@ test('Test certificate addition', () => {
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 8440,
+    Protocol: 'TCP',
     Certificates: [
       {
         CertificateArn: 'arn:1234',
       },
     ],
+  });
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 443,
+    Protocol: 'TCP',
+  });
+});
+
+test('Test default port mapping', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 443,
+    Protocol: 'TCP',
+  });
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 8443,
+    Protocol: 'TCP',
   });
 });
