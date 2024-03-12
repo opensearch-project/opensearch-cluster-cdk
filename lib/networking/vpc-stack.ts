@@ -90,7 +90,11 @@ export class NetworkStack extends Stack {
 
     /* The security group allows all ip access by default to all the ports.
     Please update below if you want to restrict access to certain ips and ports */
-    this.osSecurityGroup.addIngressRule(serverAccess, Port.allTcp());
+    this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(80));
+    this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(443));
+    this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(9200));
+    this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(5601));
+    this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(8443));
     this.osSecurityGroup.addIngressRule(this.osSecurityGroup, Port.allTraffic());
   }
 
