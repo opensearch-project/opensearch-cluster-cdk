@@ -28,7 +28,9 @@ import {
   MachineImage,
   SubnetType,
 } from 'aws-cdk-lib/aws-ec2';
-import { NetworkListener, NetworkLoadBalancer, Protocol } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import {
+  ListenerCertificate, NetworkListener, NetworkLoadBalancer, Protocol,
+} from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import {
   ManagedPolicy, Role,
@@ -124,6 +126,8 @@ export interface InfraProps extends StackProps {
   readonly customConfigFiles?: string,
   /** Whether to enable monioring with alarms */
   readonly enableMonitoring?: boolean,
+   /** Certificate ARN to attach to the listener */
+   readonly certificateArn ?: string
 }
 
 export class InfraStack extends Stack {
@@ -381,6 +385,8 @@ export class InfraStack extends Stack {
     const defaultInstanceType = (instanceCpuType === AmazonLinuxCpuType.X86_64)
       ? InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE) : InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE);
 
+    const certificateArn = `${props?.certificateArn ?? scope.node.tryGetContext('certificateArn')}`;
+
     const nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
       vpc: props.vpc,
       internetFacing: (!this.isInternal),
@@ -392,6 +398,9 @@ export class InfraStack extends Stack {
         port: 443,
         protocol: Protocol.TCP,
       });
+      if (certificateArn !== 'undefined') {
+        opensearchListener.addCertificates('cert', [ListenerCertificate.fromArn(certificateArn)]);
+      }
     } else {
       opensearchListener = nlb.addListener('opensearch', {
         port: 80,
