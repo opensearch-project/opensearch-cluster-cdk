@@ -209,6 +209,38 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
     SecurityGroupIngress: [
       {
         CidrIp: '10.10.10.10/32',
+        Description: 'from 10.10.10.10/32:80',
+        FromPort: 80,
+        IpProtocol: 'tcp',
+        ToPort: 80,
+      },
+      {
+        CidrIp: '10.10.10.10/32',
+        Description: 'from 10.10.10.10/32:443',
+        FromPort: 443,
+        IpProtocol: 'tcp',
+        ToPort: 443,
+      },
+      {
+        CidrIp: '10.10.10.10/32',
+        Description: 'from 10.10.10.10/32:9200',
+        FromPort: 9200,
+        IpProtocol: 'tcp',
+        ToPort: 9200,
+      },
+      {
+        CidrIp: '10.10.10.10/32',
+        Description: 'from 10.10.10.10/32:5601',
+        FromPort: 5601,
+        IpProtocol: 'tcp',
+        ToPort: 5601,
+      },
+      {
+        CidrIp: '10.10.10.10/32',
+        Description: 'from 10.10.10.10/32:8443',
+        FromPort: 8443,
+        IpProtocol: 'tcp',
+        ToPort: 8443,
       },
     ],
   });
