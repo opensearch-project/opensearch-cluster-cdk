@@ -413,7 +413,7 @@ export class InfraStack extends Stack {
       this.opensearchPortMapping = parseInt(opensearchPortMap, 10);
     }
 
-    if ((!this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined')) {
+    if (!this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined') {
       opensearchListener = nlb.addListener('opensearch', {
         port: this.opensearchPortMapping,
         protocol: Protocol.TLS,
@@ -434,7 +434,7 @@ export class InfraStack extends Stack {
     }
 
     if (this.dashboardsUrl !== 'undefined') {
-      if ((!this.securityDisabled && !this.minDistribution && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined')) {
+      if (!this.securityDisabled && !this.minDistribution && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined') {
         dashboardsListener = nlb.addListener('dashboards', {
           port: this.opensearchDashboardsPortMapping,
           protocol: Protocol.TLS,
