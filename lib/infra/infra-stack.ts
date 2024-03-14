@@ -403,6 +403,8 @@ export class InfraStack extends Stack {
     });
 
     const opensearchPortMap = `${props?.mapOpensearchPortTo ?? scope.node.tryGetContext('mapOpensearchPortTo')}`;
+    const opensearchDashboardsPortMap = `${props?.mapOpensearchDashboardsPortTo ?? scope.node.tryGetContext('mapOpensearchDashboardsPortTo')}`;
+
     if (opensearchPortMap === 'undefined') {
       if (!this.securityDisabled && !this.minDistribution) {
         this.opensearchPortMapping = 443;
@@ -411,6 +413,17 @@ export class InfraStack extends Stack {
       }
     } else {
       this.opensearchPortMapping = parseInt(opensearchPortMap, 10);
+    }
+
+    if (opensearchDashboardsPortMap === 'undefined') {
+      this.opensearchDashboardsPortMapping = 8443;
+    } else {
+      this.opensearchDashboardsPortMapping = parseInt(opensearchDashboardsPortMap, 10);
+    }
+
+    if (this.opensearchPortMapping === this.opensearchDashboardsPortMapping) {
+      throw new Error('OpenSearch and OpenSearch-Dashboards cannot be mapped to the same port! Please provide different port numbers.'
+      + ` Current mapping is OpenSearch:${this.opensearchPortMapping} OpenSearch-Dashboards:${this.opensearchDashboardsPortMapping}`);
     }
 
     if (!this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined') {
@@ -424,13 +437,6 @@ export class InfraStack extends Stack {
         port: this.opensearchPortMapping,
         protocol: Protocol.TCP,
       });
-    }
-
-    const opensearchDashboardsPortMap = `${props?.mapOpensearchDashboardsPortTo ?? scope.node.tryGetContext('mapOpensearchDashboardsPortTo')}`;
-    if (opensearchDashboardsPortMap === 'undefined') {
-      this.opensearchDashboardsPortMapping = 8443;
-    } else {
-      this.opensearchDashboardsPortMapping = parseInt(opensearchDashboardsPortMap, 10);
     }
 
     if (this.dashboardsUrl !== 'undefined') {
