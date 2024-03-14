@@ -198,6 +198,7 @@ export class InfraStack extends Stack {
 
   constructor(scope: Stack, id: string, props: InfraProps) {
     super(scope, id, props);
+    let opensearchListener: NetworkListener;
     let dashboardsListener: NetworkListener;
     let managerAsgCapacity: number;
     let dataAsgCapacity: number;
@@ -412,14 +413,17 @@ export class InfraStack extends Stack {
       this.opensearchPortMapping = parseInt(opensearchPortMap, 10);
     }
 
-    const opensearchListener = nlb.addListener('opensearch', {
-      port: this.opensearchPortMapping,
-      protocol: Protocol.TCP,
-    });
-    if (!this.securityDisabled && !this.minDistribution) {
-      if (certificateArn !== 'undefined') {
-        opensearchListener.addCertificates('cert', [ListenerCertificate.fromArn(certificateArn)]);
-      }
+    if ((!this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined')) {
+      opensearchListener = nlb.addListener('opensearch', {
+        port: this.opensearchPortMapping,
+        protocol: Protocol.TLS,
+        certificates: [ListenerCertificate.fromArn(certificateArn)],
+      });
+    } else {
+      opensearchListener = nlb.addListener('opensearch', {
+        port: this.opensearchPortMapping,
+        protocol: Protocol.TCP,
+      });
     }
 
     const opensearchDashboardsPortMap = `${props?.mapOpensearchDashboardsPortTo ?? scope.node.tryGetContext('mapOpensearchDashboardsPortTo')}`;
@@ -430,10 +434,18 @@ export class InfraStack extends Stack {
     }
 
     if (this.dashboardsUrl !== 'undefined') {
-      dashboardsListener = nlb.addListener('dashboards', {
-        port: this.opensearchDashboardsPortMapping,
-        protocol: Protocol.TCP,
-      });
+      if ((!this.securityDisabled && !this.minDistribution && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined')) {
+        dashboardsListener = nlb.addListener('dashboards', {
+          port: this.opensearchDashboardsPortMapping,
+          protocol: Protocol.TLS,
+          certificates: [ListenerCertificate.fromArn(certificateArn)],
+        });
+      } else {
+        dashboardsListener = nlb.addListener('dashboards', {
+          port: this.opensearchDashboardsPortMapping,
+          protocol: Protocol.TCP,
+        });
+      }
     }
 
     if (this.singleNodeCluster) {
