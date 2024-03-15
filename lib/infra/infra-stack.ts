@@ -198,6 +198,7 @@ export class InfraStack extends Stack {
 
   constructor(scope: Stack, id: string, props: InfraProps) {
     super(scope, id, props);
+    let opensearchListener: NetworkListener;
     let dashboardsListener: NetworkListener;
     let managerAsgCapacity: number;
     let dataAsgCapacity: number;
@@ -402,6 +403,8 @@ export class InfraStack extends Stack {
     });
 
     const opensearchPortMap = `${props?.mapOpensearchPortTo ?? scope.node.tryGetContext('mapOpensearchPortTo')}`;
+    const opensearchDashboardsPortMap = `${props?.mapOpensearchDashboardsPortTo ?? scope.node.tryGetContext('mapOpensearchDashboardsPortTo')}`;
+
     if (opensearchPortMap === 'undefined') {
       if (!this.securityDisabled && !this.minDistribution) {
         this.opensearchPortMapping = 443;
@@ -412,28 +415,43 @@ export class InfraStack extends Stack {
       this.opensearchPortMapping = parseInt(opensearchPortMap, 10);
     }
 
-    const opensearchListener = nlb.addListener('opensearch', {
-      port: this.opensearchPortMapping,
-      protocol: Protocol.TCP,
-    });
-    if (!this.securityDisabled && !this.minDistribution) {
-      if (certificateArn !== 'undefined') {
-        opensearchListener.addCertificates('cert', [ListenerCertificate.fromArn(certificateArn)]);
-      }
-    }
-
-    const opensearchDashboardsPortMap = `${props?.mapOpensearchDashboardsPortTo ?? scope.node.tryGetContext('mapOpensearchDashboardsPortTo')}`;
     if (opensearchDashboardsPortMap === 'undefined') {
       this.opensearchDashboardsPortMapping = 8443;
     } else {
       this.opensearchDashboardsPortMapping = parseInt(opensearchDashboardsPortMap, 10);
     }
 
-    if (this.dashboardsUrl !== 'undefined') {
-      dashboardsListener = nlb.addListener('dashboards', {
-        port: this.opensearchDashboardsPortMapping,
+    if (this.opensearchPortMapping === this.opensearchDashboardsPortMapping) {
+      throw new Error('OpenSearch and OpenSearch-Dashboards cannot be mapped to the same port! Please provide different port numbers.'
+      + ` Current mapping is OpenSearch:${this.opensearchPortMapping} OpenSearch-Dashboards:${this.opensearchDashboardsPortMapping}`);
+    }
+
+    if (!this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined') {
+      opensearchListener = nlb.addListener('opensearch', {
+        port: this.opensearchPortMapping,
+        protocol: Protocol.TLS,
+        certificates: [ListenerCertificate.fromArn(certificateArn)],
+      });
+    } else {
+      opensearchListener = nlb.addListener('opensearch', {
+        port: this.opensearchPortMapping,
         protocol: Protocol.TCP,
       });
+    }
+
+    if (this.dashboardsUrl !== 'undefined') {
+      if (!this.securityDisabled && !this.minDistribution && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined') {
+        dashboardsListener = nlb.addListener('dashboards', {
+          port: this.opensearchDashboardsPortMapping,
+          protocol: Protocol.TLS,
+          certificates: [ListenerCertificate.fromArn(certificateArn)],
+        });
+      } else {
+        dashboardsListener = nlb.addListener('dashboards', {
+          port: this.opensearchDashboardsPortMapping,
+          protocol: Protocol.TCP,
+        });
+      }
     }
 
     if (this.singleNodeCluster) {
