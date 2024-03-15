@@ -1026,3 +1026,47 @@ test('Throw error on duplicate ports', () => {
     expect(error.message).toEqual('OpenSearch and OpenSearch-Dashboards cannot be mapped to the same port! Please provide different port numbers. Current mapping is OpenSearch:8443 OpenSearch-Dashboards:8443');
   }
 });
+
+test('Ensure target group protocol is always TCP', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      certificateArn: 'arn:1234',
+      mapOpensearchPortTo: '8440',
+      mapOpensearchDashboardsPortTo: '443',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+    Port: 9200,
+    Protocol: 'TCP',
+    TargetType: 'instance',
+  });
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+    Port: 5601,
+    Protocol: 'TCP',
+    TargetType: 'instance',
+  });
+});

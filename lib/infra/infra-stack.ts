@@ -482,6 +482,7 @@ export class InfraStack extends Stack {
 
       opensearchListener.addTargets('single-node-target', {
         port: 9200,
+        protocol: Protocol.TCP,
         targets: [new InstanceTarget(singleNodeInstance)],
       });
 
@@ -489,6 +490,7 @@ export class InfraStack extends Stack {
         // @ts-ignore
         dashboardsListener.addTargets('single-node-osd-target', {
           port: 5601,
+          protocol: Protocol.TCP,
           targets: [new InstanceTarget(singleNodeInstance)],
         });
       }
@@ -662,6 +664,7 @@ export class InfraStack extends Stack {
 
       opensearchListener.addTargets('opensearchTarget', {
         port: 9200,
+        protocol: Protocol.TCP,
         targets: [clientNodeAsg],
       });
 
@@ -669,6 +672,7 @@ export class InfraStack extends Stack {
         // @ts-ignore
         dashboardsListener.addTargets('dashboardsTarget', {
           port: 5601,
+          protocol: Protocol.TCP,
           targets: [clientNodeAsg],
         });
       }
