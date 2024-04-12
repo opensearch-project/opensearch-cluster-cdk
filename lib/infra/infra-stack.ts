@@ -136,6 +136,8 @@ export interface InfraProps extends StackProps {
 }
 
 export class InfraStack extends Stack {
+  public readonly nlb: NetworkLoadBalancer;
+
   private instanceRole: Role;
 
   private distVersion: string;
@@ -396,7 +398,7 @@ export class InfraStack extends Stack {
 
     const certificateArn = `${props?.certificateArn ?? scope.node.tryGetContext('certificateArn')}`;
 
-    const nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
+    this.nlb = new NetworkLoadBalancer(this, 'clusterNlb', {
       vpc: props.vpc,
       internetFacing: (!this.isInternal),
       crossZoneEnabled: true,
@@ -427,13 +429,13 @@ export class InfraStack extends Stack {
     }
 
     if (!this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined') {
-      opensearchListener = nlb.addListener('opensearch', {
+      opensearchListener = this.nlb.addListener('opensearch', {
         port: this.opensearchPortMapping,
         protocol: Protocol.TLS,
         certificates: [ListenerCertificate.fromArn(certificateArn)],
       });
     } else {
-      opensearchListener = nlb.addListener('opensearch', {
+      opensearchListener = this.nlb.addListener('opensearch', {
         port: this.opensearchPortMapping,
         protocol: Protocol.TCP,
       });
@@ -441,13 +443,13 @@ export class InfraStack extends Stack {
 
     if (this.dashboardsUrl !== 'undefined') {
       if (!this.securityDisabled && !this.minDistribution && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined') {
-        dashboardsListener = nlb.addListener('dashboards', {
+        dashboardsListener = this.nlb.addListener('dashboards', {
           port: this.opensearchDashboardsPortMapping,
           protocol: Protocol.TLS,
           certificates: [ListenerCertificate.fromArn(certificateArn)],
         });
       } else {
-        dashboardsListener = nlb.addListener('dashboards', {
+        dashboardsListener = this.nlb.addListener('dashboards', {
           port: this.opensearchDashboardsPortMapping,
           protocol: Protocol.TCP,
         });
@@ -678,7 +680,7 @@ export class InfraStack extends Stack {
       }
     }
     new CfnOutput(this, 'loadbalancer-url', {
-      value: nlb.loadBalancerDnsName,
+      value: this.nlb.loadBalancerDnsName,
     });
 
     if (this.enableMonitoring) {
