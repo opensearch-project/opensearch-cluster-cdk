@@ -7,6 +7,7 @@ compatible open source license. */
 
 import { Stack, StackProps } from 'aws-cdk-lib';
 import {
+  IpAddresses,
   IPeer,
   ISecurityGroup,
   IVpc,
@@ -56,7 +57,7 @@ export class NetworkStack extends Stack {
     if (vpcId === 'undefined') {
       console.log('No VPC-Id Provided, a new VPC will be created');
       this.vpc = new Vpc(this, 'opensearchClusterVpc', {
-        cidr: cidrRange,
+        ipAddresses: IpAddresses.cidr(cidrRange),
         maxAzs: 3,
         subnetConfiguration: [
           {
