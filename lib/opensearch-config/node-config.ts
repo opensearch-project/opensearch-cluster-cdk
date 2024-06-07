@@ -14,8 +14,16 @@ nodeConfig.set('manager', {
   'node.roles': ['cluster_manager'],
 });
 
-nodeConfig.set('data', {
+nodeConfig.set('dualRole', {
   'node.roles': ['data', 'ingest'],
+});
+
+nodeConfig.set('data', {
+  'node.roles': ['data'],
+});
+
+nodeConfig.set('ingest', {
+  'node.roles': ['ingest'],
 });
 
 nodeConfig.set('seed-manager', {

@@ -103,8 +103,12 @@ export interface InfraProps extends StackProps {
   readonly dataNodeStorage?: number,
   /** EBS block storage size for ml nodes */
   readonly mlNodeStorage?: number,
+  /** EBS block storage size for ingest nodes */
+  readonly ingestNodeStorage?: number,
   /** EC2 instance type for data nodes */
   readonly dataInstanceType?: InstanceType,
+  /** EC2 instance type for ingest nodes */
+  readonly ingestInstanceType?: InstanceType,
   /** EC2 instance type for ML nodes */
   readonly mlInstanceType?: InstanceType,
   /** Whether to use 50% heap */
@@ -170,7 +174,11 @@ export class InfraStack extends Stack {
 
   private mlNodeStorage: number;
 
+  private ingestNodeStorage: number;
+
   private dataInstanceType: InstanceType;
+
+  private ingestInstanceType: InstanceType;
 
   private mlInstanceType: InstanceType;
 
@@ -241,6 +249,7 @@ export class InfraStack extends Stack {
     this.dashboardsUrl = `${props?.dashboardsUrl ?? scope.node.tryGetContext('dashboardsUrl')}`;
     const dataInstanceType: InstanceType | string = `${props?.dataInstanceType ?? scope.node.tryGetContext('dataInstanceType')}`;
     const mlInstanceType: InstanceType | string = `${props?.mlInstanceType ?? scope.node.tryGetContext('mlInstanceType')}`;
+    const ingestInstanceType: InstanceType | string = `${props?.ingestInstanceType ?? scope.node.tryGetContext('ingestInstanceType')}`;
 
     this.cpuArch = `${props?.cpuArch ?? scope.node.tryGetContext('cpuArch')}`;
     if (this.cpuArch === 'undefined') {
@@ -251,10 +260,12 @@ export class InfraStack extends Stack {
         instanceCpuType = AmazonLinuxCpuType.X86_64;
         this.dataInstanceType = getInstanceType(dataInstanceType, this.cpuArch.toString());
         this.mlInstanceType = getInstanceType(mlInstanceType, this.cpuArch.toString());
+        this.ingestInstanceType = getInstanceType(ingestInstanceType, this.cpuArch.toString());
       } else {
         instanceCpuType = AmazonLinuxCpuType.ARM_64;
         this.dataInstanceType = getInstanceType(dataInstanceType, this.cpuArch.toString());
         this.mlInstanceType = getInstanceType(mlInstanceType, this.cpuArch.toString());
+        this.ingestInstanceType = getInstanceType(ingestInstanceType, this.cpuArch.toString());
       }
     } else {
       throw new Error('Please provide a valid cpu architecture. The valid value can be either x64 or arm64');
@@ -318,6 +329,13 @@ export class InfraStack extends Stack {
       this.mlNodeStorage = 100;
     } else {
       this.mlNodeStorage = parseInt(mlStorage, 10);
+    }
+
+    const ingestStorage = `${props?.ingestNodeStorage ?? scope.node.tryGetContext('ingestNodeStorage')}`;
+    if (ingestStorage === 'undefined') {
+      this.ingestNodeStorage = 100;
+    } else {
+      this.ingestNodeStorage = parseInt(ingestStorage, 10);
     }
 
     this.jvmSysProps = `${props?.jvmSysProps ?? scope.node.tryGetContext('jvmSysProps')}`;
@@ -658,6 +676,37 @@ export class InfraStack extends Stack {
         });
 
         Tags.of(mlNodeAsg).add('role', 'ml-node');
+      }
+
+      if (this.ingestNodeCount > 0) {
+        const ingestNodeAsg = new AutoScalingGroup(this, 'ingestNodeAsg', {
+          vpc: props.vpc,
+          instanceType: this.ingestInstanceType,
+          machineImage: MachineImage.latestAmazonLinux2023({
+            cpuType: instanceCpuType,
+          }),
+          role: this.instanceRole,
+          maxCapacity: this.ingestNodeCount,
+          minCapacity: this.ingestNodeCount,
+          desiredCapacity: this.ingestNodeCount,
+          vpcSubnets: {
+            subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+          },
+          securityGroup: props.securityGroup,
+          blockDevices: [{
+            deviceName: '/dev/xvda',
+            volume: BlockDeviceVolume.ebs(this.ingestNodeStorage, { deleteOnTermination: true, volumeType: this.storageVolumeType }),
+          }],
+          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'ingest')),
+          initOptions: {
+            ignoreFailures: false,
+          },
+          requireImdsv2: true,
+          signals: Signals.waitForAll(),
+        });
+        Tags.of(ingestNodeAsg).add('role', 'ingest');
+      } else {
+        Tags.of(dataNodeAsg).add('role', 'dualRole');
       }
 
       opensearchListener.addTargets('opensearchTarget', {
