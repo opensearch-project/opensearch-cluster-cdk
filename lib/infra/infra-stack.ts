@@ -507,7 +507,7 @@ export class InfraStack extends Stack {
       Tags.of(singleNodeInstance).add('role', 'client');
 
       // Disable target security for now, can be provided as an option in the future
-      InfraStack.addTargets(
+      InfraStack.addTargetsToListener(
         opensearchListener,
         this.elbType, 
         'single-node-target', 
@@ -516,7 +516,7 @@ export class InfraStack extends Stack {
         false);
 
       if (this.dashboardsUrl !== 'undefined') {
-        InfraStack.addTargets(
+        InfraStack.addTargetsToListener(
           dashboardsListener!,
           this.elbType, 
           'single-node-osd-target', 
@@ -688,7 +688,7 @@ export class InfraStack extends Stack {
       }
 
       // Disable target security for now, can be provided as an option in the future
-      InfraStack.addTargets(
+      InfraStack.addTargetsToListener(
         opensearchListener,
         this.elbType, 
         'opensearchTarget', 
@@ -697,7 +697,7 @@ export class InfraStack extends Stack {
         false);
 
       if (this.dashboardsUrl !== 'undefined') {
-        InfraStack.addTargets(
+        InfraStack.addTargetsToListener(
           dashboardsListener!,
           this.elbType, 
           'dashboardsTarget', 
@@ -1090,7 +1090,7 @@ export class InfraStack extends Stack {
    * Adds targets to the given listener.
    * Works for both Application Load Balancers and Network Load Balancers.
    */
-  private static addTargets(listener: BaseListener, elbType: LoadBalancerType, id: string, port: number, target: AutoScalingGroup | InstanceTarget,
+  private static addTargetsToListener(listener: BaseListener, elbType: LoadBalancerType, id: string, port: number, target: AutoScalingGroup | InstanceTarget,
       securityEnabled: boolean) {
     switch(elbType) {
       case LoadBalancerType.ALB: {
