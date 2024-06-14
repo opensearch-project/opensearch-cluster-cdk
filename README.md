@@ -78,6 +78,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | certificateArn                | Optional    | string    | Add ACM certificate to the any listener (OpenSearch or OpenSearch-Dashboards) whose port is mapped to 443. e.g., `--context certificateArn=arn:1234`|
 | mapOpensearchPortTo           | Optional    | integer   | Load balancer port number to map to OpenSearch. e.g., `--context mapOpensearchPortTo=8440` Defaults to 80 when security is disabled and 443 when security is enabled |
 | mapOpensearchDashboardsPortTo | Optional    | integer   | Load balancer port number to map to OpenSearch-Dashboards. e.g., `--context mapOpensearchDashboardsPortTo=443` Always defaults to 8443 |
+| loadBalancerType              | Optional    | string    | The type of load balancer to deploy. Valid values are nlb for Network Load Balancer or alb for Application Load Balancer. Defaults to nlb. e.g., `--context loadBalancerType=alb` |
 
 * Before starting this step, ensure that your AWS CLI is correctly configured with access credentials.
 * Also ensure that you're running these commands in the current directory
@@ -169,7 +170,7 @@ All the ec2 instances are hosted in private subnet and can only be accessed usin
 
 ## Port Mapping
 
-The ports to access the cluster are dependent on the `security` parameter value
+The ports to access the cluster are dependent on the `security` parameter value and are identical whether using an Application Load Balancer (ALB) or a Network Load Balancer (NLB):
 * If `security` is `disable` (HTTP),
   * OpenSearch 9200 is mapped to port 80 on the LB
 * If `security` is `enable` (HTTPS),
