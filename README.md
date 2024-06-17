@@ -39,6 +39,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 
 | Name                          | Requirement | Type      | Description |
 |-------------------------------|:------------|:----------|:------------|
+| contextKey                    | Optional    | string    | A top-level key that the rest of the parameters can be nested within for organized configuration. This is used to parse config from a specific key in the `cdk.context.json` or in the `context` block in the `cdk.json` file. |
 | distVersion                   | Required    | string    | The OpenSearch distribution version (released/un-released) the user wants to deploy |
 | securityDisabled              | Required    | boolean   | Enable or disable security plugin |
 | adminPassword                 | Optionally required    | string    | This value is required when security plugin is enabled and the cluster version is greater or equal to `2.12.0`|
@@ -108,6 +109,26 @@ cdk synth "*" --context securityDisabled=false \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
 --context distVersion=2.3.0 --context serverAccessType=ipv4 --context restrictServerAccessTo=10.10.10.10/32
 ```
+
+Alternatively, you can use the `contextKey` to provide the configuration.
+
+For example, to synthesize the CloudFormation templates using a context key:
+```sh
+cdk synth "*" --context contextKey=devConfig
+```
+You would include the configuration in your `cdk.json` file like this:
+```js
+// cdk.json
+{
+  "context": {
+    "devConfig": {
+      "securityDisabled": false,
+      // ...
+    }
+  }
+}
+```
+This approach allows you to manage multiple configurations easily by defining different context keys for each environment.
 
 #### Sample command to set up multi-node cluster with security enabled on x64 AL2 machine
 
