@@ -469,7 +469,7 @@ export class InfraStack extends Stack {
 
     let dashboardsListener: NetworkListener | ApplicationListener;
     if (this.dashboardsUrl !== 'undefined') {
-      const useSSLDashboardsListener = !this.securityDisabled && !this.minDistribution 
+      const useSSLDashboardsListener = !this.securityDisabled && !this.minDistribution
         && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined';
       dashboardsListener = InfraStack.createListener(
         this.elb,
@@ -509,18 +509,18 @@ export class InfraStack extends Stack {
       // Disable target security for now, can be provided as an option in the future
       InfraStack.addTargetsToListener(
         opensearchListener,
-        this.elbType, 
-        'single-node-target', 
-        9200, 
+        this.elbType,
+        'single-node-target',
+        9200,
         new InstanceTarget(singleNodeInstance),
         false);
 
       if (this.dashboardsUrl !== 'undefined') {
         InfraStack.addTargetsToListener(
           dashboardsListener!,
-          this.elbType, 
-          'single-node-osd-target', 
-          5601, 
+          this.elbType,
+          'single-node-osd-target',
+          5601,
           new InstanceTarget(singleNodeInstance),
           false);
       }
@@ -652,7 +652,7 @@ export class InfraStack extends Stack {
           requireImdsv2: true,
           signals: Signals.waitForAll(),
         });
-        Tags.of(clientNodeAsg).add('cluster', scope.stackName);
+        Tags.of(clientNodeAsg).add('cluster', this.stackName);
       }
 
       Tags.of(clientNodeAsg).add('role', 'client');
@@ -690,18 +690,18 @@ export class InfraStack extends Stack {
       // Disable target security for now, can be provided as an option in the future
       InfraStack.addTargetsToListener(
         opensearchListener,
-        this.elbType, 
-        'opensearchTarget', 
-        9200, 
+        this.elbType,
+        'opensearchTarget',
+        9200,
         clientNodeAsg,
         false);
 
       if (this.dashboardsUrl !== 'undefined') {
         InfraStack.addTargetsToListener(
           dashboardsListener!,
-          this.elbType, 
-          'dashboardsTarget', 
-          5601, 
+          this.elbType,
+          'dashboardsTarget',
+          5601,
           clientNodeAsg,
           false);
       }
