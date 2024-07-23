@@ -465,10 +465,6 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
-          cwd: '/home/ec2-user',
-          ignoreErrors: false,
-        }));
       } else {
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; echo "y"|sudo -u ec2-user bin/opensearch-plugin install '
             + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
@@ -476,13 +472,21 @@ export class InfraStack extends Stack {
           cwd: '/home/ec2-user',
           ignoreErrors: false,
         }));
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
+      }
+    }
+
+    if (props.distributionUrl.includes('artifacts.opensearch.org') && !props.minDistribution) {
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install repository-s3 --batch', {
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
+    } else {
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
           + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${props.opensearchVersion}/latest/linux/${props.cpuArch}`
           + `/tar/builds/opensearch/core-plugins/repository-s3-${props.opensearchVersion}.zip --batch`, {
-          cwd: '/home/ec2-user',
-          ignoreErrors: false,
-        }));
-      }
+        cwd: '/home/ec2-user',
+        ignoreErrors: false,
+      }));
     }
 
     // add config to disable security if required
