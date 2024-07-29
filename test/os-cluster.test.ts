@@ -230,7 +230,7 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,g5g.large,g5g.xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,c6g.2xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,g5g.large,g5g.xlarge');
   }
 });
 
@@ -262,7 +262,7 @@ test('Throw error on ec2 instance outside of enum list', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // eslint-disable-next-line max-len
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,r5.large,r5.xlarge,r5.2xlarge,g5.large,g5.xlarge,inf1.xlarge,inf1.2xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,c5.2xlarge,r5.large,r5.xlarge,r5.2xlarge,g5.large,g5.xlarge,inf1.xlarge,inf1.2xlarge');
   }
 });
 
