@@ -5,7 +5,7 @@ The OpenSearch Contributors require contributions made to
 this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
-import { App } from 'aws-cdk-lib';
+import { App, Stack } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
@@ -1068,5 +1068,52 @@ test('Ensure target group protocol is always TCP', () => {
     Port: 5601,
     Protocol: 'TCP',
     TargetType: 'instance',
+  });
+});
+
+
+describe.each([
+  { loadBalancerType: 'alb', securityDisabled: false, expectedType: 'application', expectedProtocol: 'HTTPS' },
+  { loadBalancerType: 'alb', securityDisabled: true, expectedType: 'application', expectedProtocol: 'HTTP' },
+  { loadBalancerType: 'nlb', securityDisabled: false, expectedType: 'network', expectedProtocol: 'TLS' },
+  { loadBalancerType: 'nlb', securityDisabled: true, expectedType: 'network', expectedProtocol: 'TCP' },
+])('Test $loadBalancerType creation with securityDisabled=$securityDisabled', ({ loadBalancerType, securityDisabled, expectedType, expectedProtocol }) => {
+  test(`should create ${loadBalancerType} with securityDisabled=${securityDisabled}`, () => {
+    const app = new App({
+      context: {
+        securityDisabled,
+        certificateArn: (securityDisabled) ? undefined : 'arn:1234',
+        minDistribution: false,
+        distributionUrl: 'www.example.com',
+        cpuArch: 'x64',
+        singleNodeCluster: false,
+        dashboardsUrl: 'www.example.com',
+        distVersion: '1.0.0',
+        serverAccessType: 'ipv4',
+        restrictServerAccessTo: 'all',
+        loadBalancerType,
+      },
+    });
+
+    // WHEN 
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    const infraStack = new InfraStack(app as unknown as Stack, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // THEN
+    const infraTemplate = Template.fromStack(infraStack);
+    infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
+      Type: expectedType,
+    });
+
+    infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+      Protocol: expectedProtocol,
+    });
   });
 });

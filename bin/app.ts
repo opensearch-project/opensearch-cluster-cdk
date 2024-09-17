@@ -12,6 +12,17 @@ import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
 
 const app = new App();
+
+const contextKey = app.node.tryGetContext('contextKey');
+if (contextKey) {
+  const nestedContext = app.node.tryGetContext(contextKey);
+  if (nestedContext && typeof nestedContext === 'object') {
+    Object.entries(nestedContext).forEach(([nestedKey, nestedValue]) => {
+      app.node.setContext(nestedKey, nestedValue);
+    });
+  }
+}
+
 const region = app.node.tryGetContext('region') ?? process.env.CDK_DEFAULT_REGION;
 const account = app.node.tryGetContext('account') ?? process.env.CDK_DEFAULT_ACCOUNT;
 

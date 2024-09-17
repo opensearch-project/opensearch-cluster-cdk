@@ -39,6 +39,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 
 | Name                          | Requirement | Type      | Description |
 |-------------------------------|:------------|:----------|:------------|
+| contextKey                    | Optional    | string    | A top-level key that the rest of the parameters can be nested within for organized configuration. This is used to parse config from a specific key in the `cdk.context.json` or in the `context` block in the `cdk.json` file. |
 | distVersion                   | Required    | string    | The OpenSearch distribution version (released/un-released) the user wants to deploy |
 | securityDisabled              | Required    | boolean   | Enable or disable security plugin |
 | adminPassword                 | Optionally required    | string    | This value is required when security plugin is enabled and the cluster version is greater or equal to `2.12.0`|
@@ -78,6 +79,7 @@ In order to deploy both the stacks the user needs to provide a set of required a
 | certificateArn                | Optional    | string    | Add ACM certificate to the any listener (OpenSearch or OpenSearch-Dashboards) whose port is mapped to 443. e.g., `--context certificateArn=arn:1234`|
 | mapOpensearchPortTo           | Optional    | integer   | Load balancer port number to map to OpenSearch. e.g., `--context mapOpensearchPortTo=8440` Defaults to 80 when security is disabled and 443 when security is enabled |
 | mapOpensearchDashboardsPortTo | Optional    | integer   | Load balancer port number to map to OpenSearch-Dashboards. e.g., `--context mapOpensearchDashboardsPortTo=443` Always defaults to 8443 |
+| loadBalancerType              | Optional    | string    | The type of load balancer to deploy. Valid values are nlb for Network Load Balancer or alb for Application Load Balancer. Defaults to nlb. e.g., `--context loadBalancerType=alb` |
 
 * Before starting this step, ensure that your AWS CLI is correctly configured with access credentials.
 * Also ensure that you're running these commands in the current directory
@@ -107,6 +109,26 @@ cdk synth "*" --context securityDisabled=false \
 --context dashboardsUrl='https://artifacts.opensearch.org/releases/bundle/opensearch-dashboards/2.3.0/opensearch-dashboards-2.3.0-linux-x64.tar.gz' \
 --context distVersion=2.3.0 --context serverAccessType=ipv4 --context restrictServerAccessTo=10.10.10.10/32
 ```
+
+Alternatively, you can use the `contextKey` to provide the configuration.
+
+For example, to synthesize the CloudFormation templates using a context key:
+```sh
+cdk synth "*" --context contextKey=devConfig
+```
+You would include the configuration in your `cdk.json` file like this:
+```js
+// cdk.json
+{
+  "context": {
+    "devConfig": {
+      "securityDisabled": false,
+      // ...
+    }
+  }
+}
+```
+This approach allows you to manage multiple configurations easily by defining different context keys for each environment.
 
 #### Sample command to set up multi-node cluster with security enabled on x64 AL2 machine
 
@@ -169,7 +191,7 @@ All the ec2 instances are hosted in private subnet and can only be accessed usin
 
 ## Port Mapping
 
-The ports to access the cluster are dependent on the `security` parameter value
+The ports to access the cluster are dependent on the `security` parameter value and are identical whether using an Application Load Balancer (ALB) or a Network Load Balancer (NLB):
 * If `security` is `disable` (HTTP),
   * OpenSearch 9200 is mapped to port 80 on the LB
 * If `security` is `enable` (HTTPS),
