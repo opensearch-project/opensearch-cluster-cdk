@@ -469,7 +469,7 @@ test('Test multi-node cluster with only data-nodes', () => {
       {
         Ebs: {
           VolumeSize: 200,
-          VolumeType: 'gp2',
+          VolumeType: 'gp3',
         },
       },
     ],
@@ -1071,13 +1071,22 @@ test('Ensure target group protocol is always TCP', () => {
   });
 });
 
-
 describe.each([
-  { loadBalancerType: 'alb', securityDisabled: false, expectedType: 'application', expectedProtocol: 'HTTPS' },
-  { loadBalancerType: 'alb', securityDisabled: true, expectedType: 'application', expectedProtocol: 'HTTP' },
-  { loadBalancerType: 'nlb', securityDisabled: false, expectedType: 'network', expectedProtocol: 'TLS' },
-  { loadBalancerType: 'nlb', securityDisabled: true, expectedType: 'network', expectedProtocol: 'TCP' },
-])('Test $loadBalancerType creation with securityDisabled=$securityDisabled', ({ loadBalancerType, securityDisabled, expectedType, expectedProtocol }) => {
+  {
+    loadBalancerType: 'alb', securityDisabled: false, expectedType: 'application', expectedProtocol: 'HTTPS',
+  },
+  {
+    loadBalancerType: 'alb', securityDisabled: true, expectedType: 'application', expectedProtocol: 'HTTP',
+  },
+  {
+    loadBalancerType: 'nlb', securityDisabled: false, expectedType: 'network', expectedProtocol: 'TLS',
+  },
+  {
+    loadBalancerType: 'nlb', securityDisabled: true, expectedType: 'network', expectedProtocol: 'TCP',
+  },
+])('Test $loadBalancerType creation with securityDisabled=$securityDisabled', ({
+  loadBalancerType, securityDisabled, expectedType, expectedProtocol,
+}) => {
   test(`should create ${loadBalancerType} with securityDisabled=${securityDisabled}`, () => {
     const app = new App({
       context: {
@@ -1095,7 +1104,7 @@ describe.each([
       },
     });
 
-    // WHEN 
+    // WHEN
     const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
       env: { account: 'test-account', region: 'us-east-1' },
     });
