@@ -151,6 +151,7 @@ export interface InfraProps extends StackProps {
 
 export class InfraStack extends Stack {
   public readonly elb: NetworkLoadBalancer | ApplicationLoadBalancer;
+
   public readonly elbType: LoadBalancerType;
 
   private instanceRole: Role;
@@ -320,8 +321,7 @@ export class InfraStack extends Stack {
 
     const storageVolType = `${props?.storageVolumeType ?? scope.node.tryGetContext('storageVolumeType')}`;
     if (storageVolType === 'undefined') {
-      // use gp2 volume by default
-      this.storageVolumeType = getVolumeType('gp2');
+      this.storageVolumeType = getVolumeType('gp3');
     } else {
       this.storageVolumeType = getVolumeType(storageVolType);
     }
@@ -412,26 +412,26 @@ export class InfraStack extends Stack {
     const certificateArn = `${props?.certificateArn ?? scope.node.tryGetContext('certificateArn')}`;
 
     // Set the load balancer type, defaulting to NLB if not specified
-    const loadBalancerTypeStr = scope.node.tryGetContext('loadBalancerType') ?? 'nlb'
+    const loadBalancerTypeStr = scope.node.tryGetContext('loadBalancerType') ?? 'nlb';
     this.elbType = props?.loadBalancerType ?? LoadBalancerType[(loadBalancerTypeStr).toUpperCase() as keyof typeof LoadBalancerType];
     switch (this.elbType) {
-      case LoadBalancerType.NLB:
-        this.elb = new NetworkLoadBalancer(this, 'clusterNlb', {
-          vpc: props.vpc,
-          internetFacing: (!this.isInternal),
-          crossZoneEnabled: true,
-        });
-        break;
-      case LoadBalancerType.ALB:
-        this.elb = new ApplicationLoadBalancer(this, 'clusterAlb', {
-          vpc: props.vpc,
-          internetFacing: (!this.isInternal),
-          crossZoneEnabled: true,
-          securityGroup: props.securityGroup,
-        });
-        break;
-      default:
-        throw new Error('Invalid load balancer type provided. Valid values are ' + Object.values(LoadBalancerType).join(', '));
+    case LoadBalancerType.NLB:
+      this.elb = new NetworkLoadBalancer(this, 'clusterNlb', {
+        vpc: props.vpc,
+        internetFacing: (!this.isInternal),
+        crossZoneEnabled: true,
+      });
+      break;
+    case LoadBalancerType.ALB:
+      this.elb = new ApplicationLoadBalancer(this, 'clusterAlb', {
+        vpc: props.vpc,
+        internetFacing: (!this.isInternal),
+        crossZoneEnabled: true,
+        securityGroup: props.securityGroup,
+      });
+      break;
+    default:
+      throw new Error(`Invalid load balancer type provided. Valid values are ${Object.values(LoadBalancerType).join(', ')}`);
     }
 
     const opensearchPortMap = `${props?.mapOpensearchPortTo ?? scope.node.tryGetContext('mapOpensearchPortTo')}`;
@@ -464,7 +464,7 @@ export class InfraStack extends Stack {
       this.elbType,
       'opensearch',
       this.opensearchPortMapping,
-      (useSSLOpensearchListener) ? certificateArn : undefined
+      (useSSLOpensearchListener) ? certificateArn : undefined,
     );
 
     let dashboardsListener: NetworkListener | ApplicationListener;
@@ -476,7 +476,7 @@ export class InfraStack extends Stack {
         this.elbType,
         'dashboards',
         this.opensearchDashboardsPortMapping,
-        (useSSLDashboardsListener) ? certificateArn : undefined
+        (useSSLDashboardsListener) ? certificateArn : undefined,
       );
     }
     if (this.singleNodeCluster) {
@@ -513,7 +513,8 @@ export class InfraStack extends Stack {
         'single-node-target',
         9200,
         new InstanceTarget(singleNodeInstance),
-        false);
+        false,
+      );
 
       if (this.dashboardsUrl !== 'undefined') {
         InfraStack.addTargetsToListener(
@@ -522,7 +523,8 @@ export class InfraStack extends Stack {
           'single-node-osd-target',
           5601,
           new InstanceTarget(singleNodeInstance),
-          false);
+          false,
+        );
       }
       new CfnOutput(this, 'private-ip', {
         value: singleNodeInstance.instancePrivateIp,
@@ -694,7 +696,8 @@ export class InfraStack extends Stack {
         'opensearchTarget',
         9200,
         clientNodeAsg,
-        false);
+        false,
+      );
 
       if (this.dashboardsUrl !== 'undefined') {
         InfraStack.addTargetsToListener(
@@ -703,7 +706,8 @@ export class InfraStack extends Stack {
           'dashboardsTarget',
           5601,
           clientNodeAsg,
-          false);
+          false,
+        );
       }
     }
     new CfnOutput(this, 'loadbalancer-url', {
@@ -1051,38 +1055,38 @@ export class InfraStack extends Stack {
    * Otherwise, the protocol will be set to TCP/HTTP.
    */
   private static createListener(elb: BaseLoadBalancer, elbType: LoadBalancerType, id: string, port: number,
-      certificateArn?: string): ApplicationListener | NetworkListener {
+    certificateArn?: string): ApplicationListener | NetworkListener {
     const useSSL = !!certificateArn;
 
     let protocol: ApplicationProtocol | Protocol;
-    switch(elbType) {
-      case LoadBalancerType.ALB:
-        protocol = useSSL ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP;
-        break;
-      case LoadBalancerType.NLB:
-        protocol = useSSL ? Protocol.TLS : Protocol.TCP;
-        break;
-      default:
-        throw new Error('Unsupported load balancer type.');
+    switch (elbType) {
+    case LoadBalancerType.ALB:
+      protocol = useSSL ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP;
+      break;
+    case LoadBalancerType.NLB:
+      protocol = useSSL ? Protocol.TLS : Protocol.TCP;
+      break;
+    default:
+      throw new Error('Unsupported load balancer type.');
     }
 
     const listenerProps: BaseApplicationListenerProps | BaseNetworkListenerProps = {
-      port: port,
-      protocol: protocol,
+      port,
+      protocol,
       certificates: useSSL ? [ListenerCertificate.fromArn(certificateArn)] : undefined,
     };
 
-    switch(elbType) {
-      case LoadBalancerType.ALB: {
-        const alb = elb as ApplicationLoadBalancer;
-        return alb.addListener(id, listenerProps as BaseApplicationListenerProps);
-      }
-      case LoadBalancerType.NLB: {
-        const nlb = elb as NetworkLoadBalancer;
-        return nlb.addListener(id, listenerProps as BaseNetworkListenerProps);
-      }
-      default:
-        throw new Error('Unsupported load balancer type.');
+    switch (elbType) {
+    case LoadBalancerType.ALB: {
+      const alb = elb as ApplicationLoadBalancer;
+      return alb.addListener(id, listenerProps as BaseApplicationListenerProps);
+    }
+    case LoadBalancerType.NLB: {
+      const nlb = elb as NetworkLoadBalancer;
+      return nlb.addListener(id, listenerProps as BaseNetworkListenerProps);
+    }
+    default:
+      throw new Error('Unsupported load balancer type.');
     }
   }
 
@@ -1091,28 +1095,28 @@ export class InfraStack extends Stack {
    * Works for both Application Load Balancers and Network Load Balancers.
    */
   private static addTargetsToListener(listener: BaseListener, elbType: LoadBalancerType, id: string, port: number, target: AutoScalingGroup | InstanceTarget,
-      securityEnabled: boolean) {
-    switch(elbType) {
-      case LoadBalancerType.ALB: {
-        const albListener = listener as ApplicationListener;
-        albListener.addTargets(id, {
-          port: port,
-          protocol: securityEnabled ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP,
-          targets: [target],
-        });
-        break;
-      }
-      case LoadBalancerType.NLB: {
-        const nlbListener = listener as NetworkListener;
-        nlbListener.addTargets(id, {
-          port: port,
-          protocol: securityEnabled ? Protocol.TLS : Protocol.TCP,
-          targets: [target],
-        });
-        break;
-      }
-      default:
-        throw new Error('Unsupported load balancer type.');
+    securityEnabled: boolean) {
+    switch (elbType) {
+    case LoadBalancerType.ALB: {
+      const albListener = listener as ApplicationListener;
+      albListener.addTargets(id, {
+        port,
+        protocol: securityEnabled ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP,
+        targets: [target],
+      });
+      break;
+    }
+    case LoadBalancerType.NLB: {
+      const nlbListener = listener as NetworkListener;
+      nlbListener.addTargets(id, {
+        port,
+        protocol: securityEnabled ? Protocol.TLS : Protocol.TCP,
+        targets: [target],
+      });
+      break;
+    }
+    default:
+      throw new Error('Unsupported load balancer type.');
     }
   }
 }
