@@ -54,7 +54,7 @@ test('Test Resources with security disabled multi-node default instance types', 
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
-  infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 3);
+  infraTemplate.resourceCountIs('AWS::EC2::LaunchTemplate', 3);
   infraTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 4);
   infraTemplate.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
@@ -65,27 +65,49 @@ test('Test Resources with security disabled multi-node default instance types', 
     Port: 8443,
     Protocol: 'TCP',
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'dataNodeAsgInstanceProfileEC27E8D1',
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'r5.xlarge',
+      MetadataOptions: {
+        HttpTokens: 'required',
+      },
     },
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'c5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'seedNodeAsgInstanceProfile6F1EA4FF',
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::AutoScalingGroup', {
+    LaunchTemplate: {
+      LaunchTemplateId: {
+        Ref: 'dataNodeLt6A2F1285',
+      },
     },
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'c5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'managerNodeAsgInstanceProfile1415C2CF',
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'c5.xlarge',
+      MetadataOptions: {
+        HttpTokens: 'required',
+      },
     },
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    MetadataOptions: {
-      HttpTokens: 'required',
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::AutoScalingGroup', {
+    LaunchTemplate: {
+      LaunchTemplateId: {
+        Ref: 'seedNodeLt6F5D0A36',
+      },
+    },
+  });
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'c5.xlarge',
+      MetadataOptions: {
+        HttpTokens: 'required',
+      },
+    },
+  });
+  infraTemplate.hasResourceProperties('AWS::AutoScaling::AutoScalingGroup', {
+    LaunchTemplate: {
+      LaunchTemplateId: {
+        Ref: 'managerNodeLtDC4E5B3A',
+      },
     },
   });
 });
@@ -131,7 +153,7 @@ test('Test Resources with security disabled multi-node default instance types us
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::LoadBalancer', 1);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
-  infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 3);
+  infraTemplate.resourceCountIs('AWS::EC2::LaunchTemplate', 3);
   infraTemplate.resourceCountIs('AWS::CloudWatch::Alarm', 4);
   infraTemplate.resourceCountIs('AWS::CloudWatch::Dashboard', 1);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
@@ -142,27 +164,28 @@ test('Test Resources with security disabled multi-node default instance types us
     Port: 8443,
     Protocol: 'TCP',
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'dataNodeAsgInstanceProfileEC27E8D1',
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'r5.xlarge',
+      MetadataOptions: {
+        HttpTokens: 'required',
+      },
     },
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'c5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'seedNodeAsgInstanceProfile6F1EA4FF',
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'c5.xlarge',
+      MetadataOptions: {
+        HttpTokens: 'required',
+      },
     },
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'c5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'managerNodeAsgInstanceProfile1415C2CF',
-    },
-  });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    MetadataOptions: {
-      HttpTokens: 'required',
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'c5.xlarge',
+      MetadataOptions: {
+        HttpTokens: 'required',
+      },
     },
   });
 });
@@ -246,38 +269,30 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
   });
 
   const infraTemplate = Template.fromStack(infraStack);
-  infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 4);
+  infraTemplate.resourceCountIs('AWS::EC2::LaunchTemplate', 4);
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
     Port: 443,
     Protocol: 'TCP',
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    BlockDeviceMappings: [
-      {
-        Ebs: {
-          VolumeSize: 200,
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      BlockDeviceMappings: [
+        {
+          DeviceName: '/dev/xvda',
+          Ebs: {
+            VolumeSize: 200,
+            VolumeType: 'gp3',
+          },
         },
-      },
-    ],
+      ],
+    },
   });
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
     Scheme: 'internet-facing',
   });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'dataNodeAsgInstanceProfileEC27E8D1',
-    },
-  });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'g5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'mlNodeAsgInstanceProfileFF393D8C',
-    },
-  });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    MetadataOptions: {
-      HttpTokens: 'required',
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      InstanceType: 'g5.xlarge',
     },
   });
 });
@@ -379,9 +394,10 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // @ts-ignore
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: '
-    + 'm6g.xlarge,m6g.2xlarge,c6g.large,c6g.xlarge,c6g.2xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,r6g.4xlarge,r6g.8xlarge,'
-    + 'g5g.large,g5g.xlarge');
+    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,'
+        + 'c6g.large,c6g.xlarge,c6g.2xlarge,c6gd.xlarge,c6gd.2xlarge,c6gd.4xlarge,c6gd.8xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,'
+        + 'r6g.4xlarge,r6g.8xlarge,r6gd.xlarge,r6gd.2xlarge,r6gd.4xlarge,r6gd.8xlarge,r7gd.xlarge,r7gd.2xlarge,r7gd.4xlarge,'
+        + 'r7gd.8xlarge,g5g.large,g5g.xlarge');
   }
 });
 
@@ -427,6 +443,94 @@ test('Throw error on ec2 instance outside of enum list', () => {
   }
 });
 
+test("Throw error when useInstanceBasedStorage is true but the chosen instance type doesn't support", () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'prefixList',
+      restrictServerAccessTo: 'pl-12345',
+      dataNodeStorage: 200,
+      isInternal: true,
+      dataInstanceType: 'r5.2xlarge',
+      useInstanceBasedStorage: 'true',
+    },
+  });
+
+  try {
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // @ts-ignore
+    expect(error.message).toEqual('The instance type provided does not have instance backed storage. Please provide correct instance type');
+  }
+});
+
+test('check if directory is mounted if useInstanceBasedStorage is true', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'arm64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'prefixList',
+      restrictServerAccessTo: 'pl-12345',
+      dataNodeStorage: 200,
+      isInternal: true,
+      dataInstanceType: 'c6gd.2xlarge',
+      useInstanceBasedStorage: 'true',
+    },
+  });
+
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.hasResource('AWS::AutoScaling::AutoScalingGroup', {
+    /* eslint-disable max-len */
+    Metadata: {
+      'AWS::CloudFormation::Init': {
+        config: {
+          commands: {
+            '000': {
+              command: 'set -ex; sudo mkfs -t xfs /dev/nvme1n1; sudo mkdir /mnt/data; sudo mount /dev/nvme1n1 /mnt/data; sudo chown -R ec2-user:ec2-user /mnt/data',
+              ignoreErrors: false,
+            },
+          },
+        },
+      },
+    },
+  });
+});
+
 test('Test multi-node cluster with only data-nodes', () => {
   const app = new App({
     context: {
@@ -459,26 +563,7 @@ test('Test multi-node cluster with only data-nodes', () => {
 
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 2);
-  infraTemplate.resourceCountIs('AWS::AutoScaling::LaunchConfiguration', 2);
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    InstanceType: 'r5.xlarge',
-    IamInstanceProfile: {
-      Ref: 'seedNodeAsgInstanceProfile6F1EA4FF',
-    },
-    BlockDeviceMappings: [
-      {
-        Ebs: {
-          VolumeSize: 200,
-          VolumeType: 'gp3',
-        },
-      },
-    ],
-  });
-  infraTemplate.hasResourceProperties('AWS::AutoScaling::LaunchConfiguration', {
-    MetadataOptions: {
-      HttpTokens: 'required',
-    },
-  });
+  infraTemplate.resourceCountIs('AWS::EC2::LaunchTemplate', 2);
 });
 
 test('Test multi-node cluster with remote-store enabled', () => {
@@ -843,12 +928,12 @@ test('Test additionalConfig overriding values', () => {
       'AWS::CloudFormation::Init': {
         config: {
           commands: {
-            '011': {
+            '012': {
               command: "set -ex; cd opensearch/config; echo \"cluster.name: custom-cdk\nnetwork.port: '8041'\n\">additionalConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch.yml additionalConfig.yml -P",
               cwd: '/home/ec2-user',
               ignoreErrors: false,
             },
-            '016': {
+            '017': {
               command: "set -ex;cd opensearch-dashboards/config; echo \"something.enabled: 'true'\nsomething_else.enabled: 'false'\n\">additionalOsdConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch_dashboards.yml additionalOsdConfig.yml -P",
               cwd: '/home/ec2-user',
               ignoreErrors: false,
