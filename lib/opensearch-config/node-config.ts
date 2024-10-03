@@ -199,6 +199,8 @@ export const getVolumeType = (volumeType: string) => {
     return EbsDeviceVolumeType.GP2;
   case EbsDeviceVolumeType.GP3.valueOf():
     return EbsDeviceVolumeType.GP3;
+  case EbsDeviceVolumeType.IO1.valueOf():
+    return EbsDeviceVolumeType.IO1;
   default:
     throw new Error('Invalid volume type provided, please provide any one of the following: standard, gp2, gp3');
   }

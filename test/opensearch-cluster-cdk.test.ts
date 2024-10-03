@@ -281,7 +281,8 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
           DeviceName: '/dev/xvda',
           Ebs: {
             VolumeSize: 200,
-            VolumeType: 'gp3',
+            VolumeType: 'io1',
+            Iops: 10000,
           },
         },
       ],
@@ -674,7 +675,7 @@ test('Throw error on unsupported ebs volume type', () => {
       dataNodeStorage: 200,
       isInternal: true,
       dataInstanceType: 'r5.4xlarge',
-      storageVolumeType: 'io1',
+      storageVolumeType: 'io2',
     },
   });
   // WHEN

@@ -336,7 +336,7 @@ export class InfraStack extends Stack {
 
     const storageVolType = `${props?.storageVolumeType ?? scope.node.tryGetContext('storageVolumeType')}`;
     if (storageVolType === 'undefined') {
-      this.storageVolumeType = getVolumeType('gp3');
+      this.storageVolumeType = getVolumeType('io1');
     } else {
       this.storageVolumeType = getVolumeType(storageVolType);
     }
@@ -511,7 +511,11 @@ export class InfraStack extends Stack {
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(this.dataNodeStorage, { deleteOnTermination: true, volumeType: this.storageVolumeType }),
+          volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
+            deleteOnTermination: true,
+            volumeType: this.storageVolumeType,
+            iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.dataNodeStorage * 50 : 3000,
+          }),
         }],
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'single-node')),
         initOptions: {
@@ -564,7 +568,11 @@ export class InfraStack extends Stack {
             securityGroup: props.securityGroup,
             blockDevices: [{
               deviceName: '/dev/xvda',
-              volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }),
+              volume: BlockDeviceVolume.ebs(50, {
+                deleteOnTermination: true,
+                volumeType: this.storageVolumeType,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
+              }),
             }],
             requireImdsv2: true,
             userData: UserData.forLinux(),
@@ -600,7 +608,17 @@ export class InfraStack extends Stack {
           blockDevices: [{
             deviceName: '/dev/xvda',
             // eslint-disable-next-line max-len
-            volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: props.storageVolumeType }) : BlockDeviceVolume.ebs(this.dataNodeStorage, { deleteOnTermination: true, volumeType: this.storageVolumeType }),
+            volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50,
+              {
+                deleteOnTermination: true,
+                volumeType: this.storageVolumeType,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
+              })
+              : BlockDeviceVolume.ebs(this.dataNodeStorage, {
+                deleteOnTermination: true,
+                volumeType: this.storageVolumeType,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.dataNodeStorage * 50 : 3000,
+              }),
           }],
           requireImdsv2: true,
           userData: UserData.forLinux(),
@@ -630,7 +648,11 @@ export class InfraStack extends Stack {
           securityGroup: props.securityGroup,
           blockDevices: [{
             deviceName: '/dev/xvda',
-            volume: BlockDeviceVolume.ebs(this.dataNodeStorage, { deleteOnTermination: true, volumeType: this.storageVolumeType }),
+            volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
+              deleteOnTermination: true,
+              volumeType: this.storageVolumeType,
+              iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.dataNodeStorage * 50 : 3000,
+            }),
           }],
           requireImdsv2: true,
           userData: UserData.forLinux(),
@@ -663,7 +685,11 @@ export class InfraStack extends Stack {
             securityGroup: props.securityGroup,
             blockDevices: [{
               deviceName: '/dev/xvda',
-              volume: BlockDeviceVolume.ebs(50, { deleteOnTermination: true, volumeType: this.storageVolumeType }),
+              volume: BlockDeviceVolume.ebs(50, {
+                deleteOnTermination: true,
+                volumeType: this.storageVolumeType,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
+              }),
             }],
             requireImdsv2: true,
             userData: UserData.forLinux(),
@@ -697,7 +723,11 @@ export class InfraStack extends Stack {
             securityGroup: props.securityGroup,
             blockDevices: [{
               deviceName: '/dev/xvda',
-              volume: BlockDeviceVolume.ebs(this.mlNodeStorage, { deleteOnTermination: true, volumeType: this.storageVolumeType }),
+              volume: BlockDeviceVolume.ebs(this.mlNodeStorage, {
+                deleteOnTermination: true,
+                volumeType: this.storageVolumeType,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.mlNodeStorage * 50 : 3000,
+              }),
             }],
             requireImdsv2: true,
             userData: UserData.forLinux(),
