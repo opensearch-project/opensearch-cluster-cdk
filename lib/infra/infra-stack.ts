@@ -514,7 +514,7 @@ export class InfraStack extends Stack {
           volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
             deleteOnTermination: true,
             volumeType: this.storageVolumeType,
-            iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.dataNodeStorage * 50 : 3000,
+            iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
           }),
         }],
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'single-node')),
@@ -617,7 +617,7 @@ export class InfraStack extends Stack {
               : BlockDeviceVolume.ebs(this.dataNodeStorage, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.dataNodeStorage * 50 : 3000,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
               }),
           }],
           requireImdsv2: true,
@@ -651,7 +651,7 @@ export class InfraStack extends Stack {
             volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
               deleteOnTermination: true,
               volumeType: this.storageVolumeType,
-              iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.dataNodeStorage * 50 : 3000,
+              iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
             }),
           }],
           requireImdsv2: true,
@@ -726,7 +726,7 @@ export class InfraStack extends Stack {
               volume: BlockDeviceVolume.ebs(this.mlNodeStorage, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? this.mlNodeStorage * 50 : 3000,
+                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
               }),
             }],
             requireImdsv2: true,

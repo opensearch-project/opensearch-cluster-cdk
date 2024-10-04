@@ -282,7 +282,7 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
           Ebs: {
             VolumeSize: 200,
             VolumeType: 'io1',
-            Iops: 10000,
+            Iops: 5000,
           },
         },
       ],
