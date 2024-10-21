@@ -44,11 +44,17 @@ export enum x64Ec2InstanceType {
   C5_LARGE = 'c5.large',
   C5_XLARGE = 'c5.xlarge',
   C5_2XLARGE = 'c5.2xlarge',
+  C5D_XLARGE = 'c5d.xlarge',
+  C5D_2XLARGE = 'c5d.2xlarge',
   R5_LARGE = 'r5.large',
   R5_XLARGE = 'r5.xlarge',
   R5_2XLARGE = 'r5.2xlarge',
   R5_4XLARGE = 'r5.4xlarge',
   R5_8XLARGE = 'r5.8xlarge',
+  R5D_XLARGE = 'r5d.xlarge',
+  R5D_2XLARGE = 'r5d.2xlarge',
+  R5D_4XLARGE = 'r5d.4xlarge',
+  R5D_8XLARGE = 'r5d.8xlarge',
   G5_LARGE = 'g5.large',
   G5_XLARGE = 'g5.xlarge',
   I3_LARGE = 'i3.large',
@@ -103,6 +109,10 @@ export const getX64InstanceTypes = (instanceType: string): InstanceTypeInfo => {
     return { instance: InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE), hasInternalStorage: false };
   case x64Ec2InstanceType.C5_2XLARGE:
     return { instance: InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case x64Ec2InstanceType.C5D_XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C5D, InstanceSize.XLARGE), hasInternalStorage: true };
+  case x64Ec2InstanceType.C5D_2XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C5D, InstanceSize.XLARGE2), hasInternalStorage: true };
   case x64Ec2InstanceType.R5_LARGE:
     return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.LARGE), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_XLARGE:
@@ -113,6 +123,14 @@ export const getX64InstanceTypes = (instanceType: string): InstanceTypeInfo => {
     return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE4), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_8XLARGE:
     return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE8), hasInternalStorage: false };
+  case x64Ec2InstanceType.R5D_XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R5D, InstanceSize.XLARGE), hasInternalStorage: true };
+  case x64Ec2InstanceType.R5D_2XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R5D, InstanceSize.XLARGE2), hasInternalStorage: true };
+  case x64Ec2InstanceType.R5D_4XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R5D, InstanceSize.XLARGE4), hasInternalStorage: true };
+  case x64Ec2InstanceType.R5D_8XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R5D, InstanceSize.XLARGE8), hasInternalStorage: true };
   case x64Ec2InstanceType.G5_LARGE:
     return { instance: InstanceType.of(InstanceClass.G5, InstanceSize.LARGE), hasInternalStorage: true };
   case x64Ec2InstanceType.G5_XLARGE:
