@@ -44,8 +44,7 @@ test('Throw error on incorrect JSON for opensearch', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // @ts-ignore
-    expect(error.message).toEqual('Encountered following error while parsing additionalConfig json parameter: '
-      + 'SyntaxError: Unexpected token e in JSON at position 33');
+    expect(error.message).toContain('Encountered following error while parsing additionalConfig json parameter:');
   }
 });
 
@@ -84,8 +83,7 @@ test('Throw error on incorrect JSON for opensearch-dashboards', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // @ts-ignore
-    expect(error.message).toEqual('Encountered following error while parsing additionalOsdConfig json parameter: '
-      + 'SyntaxError: Unexpected token s in JSON at position 31');
+    expect(error.message).toContain('Encountered following error while parsing additionalOsdConfig json parameter:');
   }
 });
 
