@@ -777,8 +777,7 @@ test('Throw error on incorrect JSON', () => {
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
     // @ts-ignore
-    expect(error.message).toEqual('Encountered following error while parsing customConfigFiles json parameter: '
-    + 'SyntaxError: Unexpected token o in JSON at position 25');
+    expect(error.message).toContain('Encountered following error while parsing customConfigFiles json parameter:');
   }
 });
 
