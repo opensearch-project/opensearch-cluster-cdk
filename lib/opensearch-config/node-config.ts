@@ -118,7 +118,7 @@ export const getX64InstanceTypes = (instanceType: string): InstanceTypeInfo => {
   case x64Ec2InstanceType.R5_XLARGE:
     return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_2XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE), hasInternalStorage: false };
+    return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE2), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_4XLARGE:
     return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.XLARGE4), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_8XLARGE:
