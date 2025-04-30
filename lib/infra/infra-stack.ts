@@ -499,7 +499,7 @@ export class InfraStack extends Stack {
       singleNodeInstance = new Instance(this, 'single-node-instance', {
         vpc: props.vpc,
         instanceType: singleNodeInstanceType,
-        machineImage: MachineImage.latestAmazonLinux2(
+        machineImage: MachineImage.latestAmazonLinux2023(
           {
             cpuType: instanceCpuType,
           },
@@ -561,7 +561,7 @@ export class InfraStack extends Stack {
         const managerNodeAsg = new AutoScalingGroup(this, 'managerNodeAsg', {
           launchTemplate: new LaunchTemplate(this, 'managerNodeLt', {
             instanceType: defaultInstanceType,
-            machineImage: MachineImage.latestAmazonLinux2({
+            machineImage: MachineImage.latestAmazonLinux2023({
               cpuType: instanceCpuType,
             }),
             role: this.instanceRole,
@@ -600,7 +600,7 @@ export class InfraStack extends Stack {
       const seedNodeAsg = new AutoScalingGroup(this, 'seedNodeAsg', {
         launchTemplate: new LaunchTemplate(this, 'seedNodeLt', {
           instanceType: (seedConfig === 'seed-manager') ? defaultInstanceType : this.dataInstanceType,
-          machineImage: MachineImage.latestAmazonLinux2({
+          machineImage: MachineImage.latestAmazonLinux2023({
             cpuType: instanceCpuType,
           }),
           role: this.instanceRole,
@@ -641,7 +641,7 @@ export class InfraStack extends Stack {
       const dataNodeAsg = new AutoScalingGroup(this, 'dataNodeAsg', {
         launchTemplate: new LaunchTemplate(this, 'dataNodeLt', {
           instanceType: this.dataInstanceType,
-          machineImage: MachineImage.latestAmazonLinux2({
+          machineImage: MachineImage.latestAmazonLinux2023({
             cpuType: instanceCpuType,
           }),
           role: this.instanceRole,
@@ -678,7 +678,7 @@ export class InfraStack extends Stack {
         clientNodeAsg = new AutoScalingGroup(this, 'clientNodeAsg', {
           launchTemplate: new LaunchTemplate(this, 'clientNodelt', {
             instanceType: defaultInstanceType,
-            machineImage: MachineImage.latestAmazonLinux2({
+            machineImage: MachineImage.latestAmazonLinux2023({
               cpuType: instanceCpuType,
             }),
             role: this.instanceRole,
@@ -716,7 +716,7 @@ export class InfraStack extends Stack {
         const mlNodeAsg = new AutoScalingGroup(this, 'mlNodeAsg', {
           launchTemplate: new LaunchTemplate(this, 'mlNodeLt', {
             instanceType: this.mlInstanceType,
-            machineImage: MachineImage.latestAmazonLinux2({
+            machineImage: MachineImage.latestAmazonLinux2023({
               cpuType: instanceCpuType,
             }),
             role: this.instanceRole,
