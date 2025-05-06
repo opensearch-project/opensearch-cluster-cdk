@@ -14,13 +14,11 @@ import {
 import { Unit } from 'aws-cdk-lib/aws-cloudwatch';
 import {
   AmazonLinuxCpuType,
-  AmazonLinuxGeneration,
   CloudFormationInit,
   ISecurityGroup,
   IVpc,
   InitCommand,
   InitElement,
-  InitPackage,
   Instance,
   InstanceClass,
   InstanceSize,
@@ -40,6 +38,7 @@ import {
   BaseNetworkListenerProps,
   ListenerCertificate,
   NetworkListener, NetworkLoadBalancer, Protocol,
+  SslPolicy,
 } from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import { InstanceTarget } from 'aws-cdk-lib/aws-elasticloadbalancingv2-targets';
 import {
@@ -59,9 +58,9 @@ import {
 } from '../opensearch-config/node-config';
 import { RemoteStoreResources } from './remote-store-resources';
 
-enum cpuArchEnum{
-  X64='x64',
-  ARM64='arm64'
+enum cpuArchEnum {
+  X64 = 'x64',
+  ARM64 = 'arm64'
 }
 
 export enum LoadBalancerType {
@@ -142,11 +141,11 @@ export interface InfraProps extends StackProps {
   /** Whether to enable monioring with alarms */
   readonly enableMonitoring?: boolean,
   /** Certificate ARN to attach to the listener */
-  readonly certificateArn ?: string
+  readonly certificateArn?: string
   /** Map opensearch port on load balancer to */
-  readonly mapOpensearchPortTo ?: number
+  readonly mapOpensearchPortTo?: number
   /** Map opensearch-dashboards port on load balancer to */
-  readonly mapOpensearchDashboardsPortTo ?: number
+  readonly mapOpensearchDashboardsPortTo?: number
   /** Type of load balancer to use (e.g., 'nlb' or 'alb') */
   readonly loadBalancerType?: LoadBalancerType
   /** Use instance based storage (if supported) on ec2 instance */
@@ -470,7 +469,7 @@ export class InfraStack extends Stack {
 
     if (this.opensearchPortMapping === this.opensearchDashboardsPortMapping) {
       throw new Error('OpenSearch and OpenSearch-Dashboards cannot be mapped to the same port! Please provide different port numbers.'
-          + ` Current mapping is OpenSearch:${this.opensearchPortMapping} OpenSearch-Dashboards:${this.opensearchDashboardsPortMapping}`);
+        + ` Current mapping is OpenSearch:${this.opensearchPortMapping} OpenSearch-Dashboards:${this.opensearchDashboardsPortMapping}`);
     }
 
     const useSSLOpensearchListener = !this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined';
@@ -485,7 +484,7 @@ export class InfraStack extends Stack {
     let dashboardsListener: NetworkListener | ApplicationListener;
     if (this.dashboardsUrl !== 'undefined') {
       const useSSLDashboardsListener = !this.securityDisabled && !this.minDistribution
-          && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined';
+        && this.opensearchDashboardsPortMapping === 443 && certificateArn !== 'undefined';
       dashboardsListener = InfraStack.createListener(
         this.elb,
         this.elbType,
@@ -537,12 +536,12 @@ export class InfraStack extends Stack {
 
       if (this.dashboardsUrl !== 'undefined') {
         InfraStack.addTargetsToListener(
-            dashboardsListener!,
-            this.elbType,
-            'single-node-osd-target',
-            5601,
-            new InstanceTarget(singleNodeInstance),
-            false,
+          dashboardsListener!,
+          this.elbType,
+          'single-node-osd-target',
+          5601,
+          new InstanceTarget(singleNodeInstance),
+          false,
         );
       }
       new CfnOutput(this, 'private-ip', {
@@ -761,12 +760,12 @@ export class InfraStack extends Stack {
 
       if (this.dashboardsUrl !== 'undefined') {
         InfraStack.addTargetsToListener(
-            dashboardsListener!,
-            this.elbType,
-            'dashboardsTarget',
-            5601,
-            clientNodeAsg,
-            false,
+          dashboardsListener!,
+          this.elbType,
+          'dashboardsTarget',
+          5601,
+          clientNodeAsg,
+          false,
         );
       }
     }
@@ -804,7 +803,7 @@ export class InfraStack extends Stack {
 
     if ((nodeType === 'data' || nodeType === 'single-node') && this.useInstanceBasedStorage) {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex; sudo mkfs -t xfs /dev/nvme1n1; '
-          + 'sudo mkdir /mnt/data; sudo mount /dev/nvme1n1 /mnt/data; sudo chown -R ec2-user:ec2-user /mnt/data',
+        + 'sudo mkdir /mnt/data; sudo mount /dev/nvme1n1 /mnt/data; sudo chown -R ec2-user:ec2-user /mnt/data',
       {
         ignoreErrors: false,
       }));
@@ -813,11 +812,11 @@ export class InfraStack extends Stack {
 
     const cwInit = [
       InitCommand.shellCommand('MAX_RETRIES=5; RETRY_DELAY=10; for i in $(seq 1 $MAX_RETRIES); '
-          + 'do sudo yum install -y amazon-cloudwatch-agent && break || '
-          + '{ echo "Attempt $i/$MAX_RETRIES failed. Retrying in $RETRY_DELAY seconds..."; sleep $RETRY_DELAY; }; done'),
+        + 'do sudo yum install -y amazon-cloudwatch-agent && break || '
+        + '{ echo "Attempt $i/$MAX_RETRIES failed. Retrying in $RETRY_DELAY seconds..."; sleep $RETRY_DELAY; }; done'),
       InitCommand.shellCommand('arc=$(arch); if [ "$arc" == "aarch64" ]; then dist="arm64"; else dist="amd64"; fi; '
-          + 'sudo wget -nv https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_$dist '
-          + '-O /usr/bin/yq && sudo chmod 755 /usr/bin/yq'),
+        + 'sudo wget -nv https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_$dist '
+        + '-O /usr/bin/yq && sudo chmod 755 /usr/bin/yq'),
       CloudwatchAgent.asInitFile('/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json',
         {
           agent: {
@@ -900,7 +899,7 @@ export class InfraStack extends Stack {
       InitCommand.shellCommand('set -ex;/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s'),
       InitCommand.shellCommand('set -ex; sudo echo "vm.max_map_count=262144" >> /etc/sysctl.conf;sudo sysctl -p'),
       InitCommand.shellCommand(`set -ex;mkdir opensearch; curl -L ${this.distributionUrl} -o opensearch.tar.gz;`
-          + 'tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;', {
+        + 'tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;', {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }),
@@ -950,8 +949,8 @@ export class InfraStack extends Stack {
         }));
       } else {
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
-            + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${this.distVersion}/latest/linux/${this.cpuArch}`
-            + `/tar/builds/opensearch/core-plugins/discovery-ec2-${this.distVersion}.zip --batch`, {
+          + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${this.distVersion}/latest/linux/${this.cpuArch}`
+          + `/tar/builds/opensearch/core-plugins/discovery-ec2-${this.distVersion}.zip --batch`, {
           cwd: currentWorkDir,
           ignoreErrors: false,
         }));
@@ -997,8 +996,8 @@ export class InfraStack extends Stack {
       }));
     } else {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install '
-          + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${this.distVersion}/latest/linux/${this.cpuArch}`
-          + `/tar/builds/opensearch/core-plugins/repository-s3-${this.distVersion}.zip --batch`, {
+        + `https://ci.opensearch.org/ci/dbc/distribution-build-opensearch/${this.distVersion}/latest/linux/${this.cpuArch}`
+        + `/tar/builds/opensearch/core-plugins/repository-s3-${this.distVersion}.zip --batch`, {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
@@ -1017,7 +1016,7 @@ export class InfraStack extends Stack {
     // Check if there are any jvm properties being passed
     if (this.jvmSysProps.toString() !== 'undefined') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; jvmSysPropsList=$(echo "${this.jvmSysProps.toString()}" | tr ',' '\\n');`
-          + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
+        + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
       {
         cwd: currentWorkDir,
         ignoreErrors: false,
@@ -1039,7 +1038,7 @@ export class InfraStack extends Stack {
 
     if (this.additionalConfig.toString() !== 'undefined') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch/config; echo "${this.additionalConfig}">additionalConfig.yml; `
-          + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml additionalConfig.yml -P',
+        + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml additionalConfig.yml -P',
       {
         cwd: currentWorkDir,
         ignoreErrors: false,
@@ -1072,7 +1071,7 @@ export class InfraStack extends Stack {
         }));
     } else {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; '
-          + `sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
+        + `sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
       {
         cwd: currentWorkDir,
         ignoreErrors: false,
@@ -1082,7 +1081,7 @@ export class InfraStack extends Stack {
     // If OpenSearch-Dashboards URL is present
     if (this.dashboardsUrl !== 'undefined') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${this.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
-          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
+        + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
@@ -1095,9 +1094,9 @@ export class InfraStack extends Stack {
 
       if (this.securityDisabled && !this.minDistribution) {
         cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-            + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
-            + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
-            + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
+          + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
+          + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
+          + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
         {
           cwd: currentWorkDir,
           ignoreErrors: false,
@@ -1106,7 +1105,7 @@ export class InfraStack extends Stack {
 
       if (this.additionalOsdConfig.toString() !== 'undefined') {
         cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards/config; echo "${this.additionalOsdConfig}">additionalOsdConfig.yml; `
-            + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch_dashboards.yml additionalOsdConfig.yml -P',
+          + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch_dashboards.yml additionalOsdConfig.yml -P',
         {
           cwd: currentWorkDir,
           ignoreErrors: false,
@@ -1115,7 +1114,7 @@ export class InfraStack extends Stack {
 
       // Starting OpenSearch-Dashboards
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
-          + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
+        + 'sudo -u ec2-user nohup ./bin/opensearch-dashboards > dashboard_install.log 2>&1 &', {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
@@ -1146,6 +1145,7 @@ export class InfraStack extends Stack {
     }
 
     const listenerProps: BaseApplicationListenerProps | BaseNetworkListenerProps = {
+      sslPolicy: SslPolicy.RECOMMENDED_TLS,
       port,
       protocol,
       certificates: useSSL ? [ListenerCertificate.fromArn(certificateArn)] : undefined,
