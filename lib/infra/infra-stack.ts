@@ -220,6 +220,11 @@ export class InfraStack extends Stack {
 
   private opensearchDashboardsPortMapping: number;
 
+  // checks if the URL is from S3 (starts with s3://), and returns true if it is
+  private static isDistributionUrlFromS3(url: string): boolean {
+    return url.startsWith('s3://');
+  }
+
   constructor(scope: Stack, id: string, props: InfraProps) {
     super(scope, id, props);
     let managerAsgCapacity: number;
@@ -387,10 +392,19 @@ export class InfraStack extends Stack {
 
     this.customRoleArn = `${props?.customRoleArn ?? scope.node.tryGetContext('customRoleArn')}`;
     if (this.customRoleArn === 'undefined') {
+      const managedPolicies = [
+        ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
+        ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
+        ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
+      ];
+
+      // Add S3 policy only if any distribution URL is from S3
+      if (InfraStack.isDistributionUrlFromS3(this.distributionUrl) || InfraStack.isDistributionUrlFromS3(this.dashboardsUrl)) {
+        managedPolicies.push(ManagedPolicy.fromAwsManagedPolicyName('AmazonS3ReadOnlyAccess'));
+      }
+
       this.instanceRole = new Role(this, 'instanceRole', {
-        managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ReadOnlyAccess'),
-          ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
-          ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore')],
+        managedPolicies,
         assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
       });
     } else {
@@ -811,6 +825,7 @@ export class InfraStack extends Stack {
       currentWorkDir = '/mnt/data';
     }
 
+    const isDistributionS3 = InfraStack.isDistributionUrlFromS3(this.distributionUrl);
     const cwInit = [
       InitCommand.shellCommand('MAX_RETRIES=5; RETRY_DELAY=10; for i in $(seq 1 $MAX_RETRIES); '
           + 'do sudo yum install -y amazon-cloudwatch-agent && break || '
@@ -899,8 +914,13 @@ export class InfraStack extends Stack {
       // eslint-disable-next-line max-len
       InitCommand.shellCommand('set -ex;/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s'),
       InitCommand.shellCommand('set -ex; sudo echo "vm.max_map_count=262144" >> /etc/sysctl.conf;sudo sysctl -p'),
-      InitCommand.shellCommand(`set -ex;mkdir opensearch; curl -L ${this.distributionUrl} -o opensearch.tar.gz;`
-          + 'tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;', {
+      InitCommand.shellCommand(`set -ex;mkdir opensearch; 
+        if [[ ${isDistributionS3} == true ]]; then 
+          aws s3 cp "${this.distributionUrl}" opensearch.tar.gz; 
+        else 
+          curl -L "${this.distributionUrl}" -o opensearch.tar.gz; 
+        fi;
+        tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;`, {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }),
@@ -1081,8 +1101,14 @@ export class InfraStack extends Stack {
 
     // If OpenSearch-Dashboards URL is present
     if (this.dashboardsUrl !== 'undefined') {
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; curl -L ${this.dashboardsUrl} -o opensearch-dashboards.tar.gz;`
-          + 'tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;', {
+      const isDashboardsS3 = InfraStack.isDistributionUrlFromS3(this.dashboardsUrl);
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;mkdir opensearch-dashboards; 
+        if [[ ${isDashboardsS3} == true ]]; then 
+          aws s3 cp "${this.dashboardsUrl}" opensearch-dashboards.tar.gz; 
+        else 
+          curl -L "${this.dashboardsUrl}" -o opensearch-dashboards.tar.gz; 
+        fi;
+        tar zxf opensearch-dashboards.tar.gz -C opensearch-dashboards --strip-components=1; chown -R ec2-user:ec2-user opensearch-dashboards;`, {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
