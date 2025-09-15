@@ -443,23 +443,23 @@ export class InfraStack extends Stack {
     const loadBalancerTypeStr = scope.node.tryGetContext('loadBalancerType') ?? 'nlb';
     this.elbType = props?.loadBalancerType ?? LoadBalancerType[(loadBalancerTypeStr).toUpperCase() as keyof typeof LoadBalancerType];
     switch (this.elbType) {
-      case LoadBalancerType.NLB:
-        this.elb = new NetworkLoadBalancer(this, 'clusterNlb', {
-          vpc: props.vpc,
-          internetFacing: (!this.isInternal),
-          crossZoneEnabled: true,
-        });
-        break;
-      case LoadBalancerType.ALB:
-        this.elb = new ApplicationLoadBalancer(this, 'clusterAlb', {
-          vpc: props.vpc,
-          internetFacing: (!this.isInternal),
-          crossZoneEnabled: true,
-          securityGroup: props.securityGroup,
-        });
-        break;
-      default:
-        throw new Error(`Invalid load balancer type provided. Valid values are ${Object.values(LoadBalancerType).join(', ')}`);
+    case LoadBalancerType.NLB:
+      this.elb = new NetworkLoadBalancer(this, 'clusterNlb', {
+        vpc: props.vpc,
+        internetFacing: (!this.isInternal),
+        crossZoneEnabled: true,
+      });
+      break;
+    case LoadBalancerType.ALB:
+      this.elb = new ApplicationLoadBalancer(this, 'clusterAlb', {
+        vpc: props.vpc,
+        internetFacing: (!this.isInternal),
+        crossZoneEnabled: true,
+        securityGroup: props.securityGroup,
+      });
+      break;
+    default:
+      throw new Error(`Invalid load balancer type provided. Valid values are ${Object.values(LoadBalancerType).join(', ')}`);
     }
 
     const opensearchPortMap = `${props?.mapOpensearchPortTo ?? scope.node.tryGetContext('mapOpensearchPortTo')}`;
@@ -818,9 +818,9 @@ export class InfraStack extends Stack {
     if ((nodeType === 'data' || nodeType === 'single-node') && this.useInstanceBasedStorage) {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex; sudo mkfs -t xfs /dev/nvme1n1; '
         + 'sudo mkdir /mnt/data; sudo mount /dev/nvme1n1 /mnt/data; sudo chown -R ec2-user:ec2-user /mnt/data',
-        {
-          ignoreErrors: false,
-        }));
+      {
+        ignoreErrors: false,
+      }));
       currentWorkDir = '/mnt/data';
     }
 
@@ -913,7 +913,6 @@ export class InfraStack extends Stack {
       // eslint-disable-next-line max-len
       InitCommand.shellCommand('set -ex;/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s'),
       InitCommand.shellCommand('set -ex; sudo echo "vm.max_map_count=262144" >> /etc/sysctl.conf;sudo sysctl -p'),
-<<<<<<< HEAD
       InitCommand.shellCommand(`set -ex;mkdir opensearch; 
         if [[ ${isDistributionS3} == true ]]; then 
           aws s3 cp "${this.distributionUrl}" opensearch.tar.gz; 
@@ -921,10 +920,6 @@ export class InfraStack extends Stack {
           curl -L "${this.distributionUrl}" -o opensearch.tar.gz; 
         fi;
         tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;`, {
-=======
-      InitCommand.shellCommand(`set -ex;mkdir opensearch; curl -L ${this.distributionUrl} -o opensearch.tar.gz;`
-        + 'tar zxf opensearch.tar.gz -C opensearch --strip-components=1; chown -R ec2-user:ec2-user opensearch;', {
->>>>>>> 78170f7 (Update the sslPolicy from default to recommended TLS)
         cwd: currentWorkDir,
         ignoreErrors: false,
       }),
@@ -1042,10 +1037,10 @@ export class InfraStack extends Stack {
     if (this.jvmSysProps.toString() !== 'undefined') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; jvmSysPropsList=$(echo "${this.jvmSysProps.toString()}" | tr ',' '\\n');`
         + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
-        {
-          cwd: currentWorkDir,
-          ignoreErrors: false,
-        }));
+      {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
     }
 
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
@@ -1064,10 +1059,10 @@ export class InfraStack extends Stack {
     if (this.additionalConfig.toString() !== 'undefined') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch/config; echo "${this.additionalConfig}">additionalConfig.yml; `
         + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml additionalConfig.yml -P',
-        {
-          cwd: currentWorkDir,
-          ignoreErrors: false,
-        }));
+      {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
     }
 
     if (this.customConfigFiles !== 'undefined') {
@@ -1097,10 +1092,10 @@ export class InfraStack extends Stack {
     } else {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; '
         + `sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
-        {
-          cwd: currentWorkDir,
-          ignoreErrors: false,
-        }));
+      {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
     }
 
     // If OpenSearch-Dashboards URL is present
@@ -1128,19 +1123,19 @@ export class InfraStack extends Stack {
           + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
           + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
           + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
-          {
-            cwd: currentWorkDir,
-            ignoreErrors: false,
-          }));
+        {
+          cwd: currentWorkDir,
+          ignoreErrors: false,
+        }));
       }
 
       if (this.additionalOsdConfig.toString() !== 'undefined') {
         cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards/config; echo "${this.additionalOsdConfig}">additionalOsdConfig.yml; `
           + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch_dashboards.yml additionalOsdConfig.yml -P',
-          {
-            cwd: currentWorkDir,
-            ignoreErrors: false,
-          }));
+        {
+          cwd: currentWorkDir,
+          ignoreErrors: false,
+        }));
       }
 
       // Starting OpenSearch-Dashboards
@@ -1165,14 +1160,14 @@ export class InfraStack extends Stack {
 
     let protocol: ApplicationProtocol | Protocol;
     switch (elbType) {
-      case LoadBalancerType.ALB:
-        protocol = useSSL ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP;
-        break;
-      case LoadBalancerType.NLB:
-        protocol = useSSL ? Protocol.TLS : Protocol.TCP;
-        break;
-      default:
-        throw new Error('Unsupported load balancer type.');
+    case LoadBalancerType.ALB:
+      protocol = useSSL ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP;
+      break;
+    case LoadBalancerType.NLB:
+      protocol = useSSL ? Protocol.TLS : Protocol.TCP;
+      break;
+    default:
+      throw new Error('Unsupported load balancer type.');
     }
 
     const listenerProps: BaseApplicationListenerProps | BaseNetworkListenerProps = {
@@ -1183,16 +1178,16 @@ export class InfraStack extends Stack {
     };
 
     switch (elbType) {
-      case LoadBalancerType.ALB: {
-        const alb = elb as ApplicationLoadBalancer;
-        return alb.addListener(id, listenerProps as BaseApplicationListenerProps);
-      }
-      case LoadBalancerType.NLB: {
-        const nlb = elb as NetworkLoadBalancer;
-        return nlb.addListener(id, listenerProps as BaseNetworkListenerProps);
-      }
-      default:
-        throw new Error('Unsupported load balancer type.');
+    case LoadBalancerType.ALB: {
+      const alb = elb as ApplicationLoadBalancer;
+      return alb.addListener(id, listenerProps as BaseApplicationListenerProps);
+    }
+    case LoadBalancerType.NLB: {
+      const nlb = elb as NetworkLoadBalancer;
+      return nlb.addListener(id, listenerProps as BaseNetworkListenerProps);
+    }
+    default:
+      throw new Error('Unsupported load balancer type.');
     }
   }
 
@@ -1203,26 +1198,26 @@ export class InfraStack extends Stack {
   private static addTargetsToListener(listener: BaseListener, elbType: LoadBalancerType, id: string, port: number, target: AutoScalingGroup | InstanceTarget,
     securityEnabled: boolean) {
     switch (elbType) {
-      case LoadBalancerType.ALB: {
-        const albListener = listener as ApplicationListener;
-        albListener.addTargets(id, {
-          port,
-          protocol: securityEnabled ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP,
-          targets: [target],
-        });
-        break;
-      }
-      case LoadBalancerType.NLB: {
-        const nlbListener = listener as NetworkListener;
-        nlbListener.addTargets(id, {
-          port,
-          protocol: securityEnabled ? Protocol.TLS : Protocol.TCP,
-          targets: [target],
-        });
-        break;
-      }
-      default:
-        throw new Error('Unsupported load balancer type.');
+    case LoadBalancerType.ALB: {
+      const albListener = listener as ApplicationListener;
+      albListener.addTargets(id, {
+        port,
+        protocol: securityEnabled ? ApplicationProtocol.HTTPS : ApplicationProtocol.HTTP,
+        targets: [target],
+      });
+      break;
+    }
+    case LoadBalancerType.NLB: {
+      const nlbListener = listener as NetworkListener;
+      nlbListener.addTargets(id, {
+        port,
+        protocol: securityEnabled ? Protocol.TLS : Protocol.TCP,
+        targets: [target],
+      });
+      break;
+    }
+    default:
+      throw new Error('Unsupported load balancer type.');
     }
   }
 
