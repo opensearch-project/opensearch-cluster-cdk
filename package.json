@@ -1,6 +1,6 @@
 {
   "name": "@opensearch-project/opensearch-cluster-cdk",
-  "version": "1.3.0",
+  "version": "1.4.1",
   "bin": {
     "cdk_v2": "bin/app.js"
   },
@@ -17,7 +17,7 @@
     "@types/node": "10.17.27",
     "@types/prettier": "2.6.0",
     "@types/semver": "^7.5.6",
-    "aws-cdk": "2.45.0",
+    "aws-cdk": "2.139.0",
     "jest": "^27.5.1",
     "ts-jest": "^27.1.4",
     "ts-node": "^10.9.1",
