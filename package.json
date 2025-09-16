@@ -1,6 +1,6 @@
 {
   "name": "@opensearch-project/opensearch-cluster-cdk",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "bin": {
     "cdk_v2": "bin/app.js"
   },
