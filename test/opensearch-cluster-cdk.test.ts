@@ -1186,7 +1186,7 @@ test('Test S3 distribution URL support for OpenSearch in single-node cluster', (
 
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
-
+  
   // Verify that the instance has S3 read permissions
   infraTemplate.hasResourceProperties('AWS::IAM::Role', {
     ManagedPolicyArns: [
@@ -1232,13 +1232,17 @@ test('Test S3 distribution URL support for OpenSearch in single-node cluster', (
       },
     ],
   });
-
+  
   // Verify that the CloudFormation Init contains download commands with S3 URL
   const template = infraTemplate.toJSON();
-  const instanceResource = Object.values(template.Resources).find((resource: any) => resource.Type === 'AWS::EC2::Instance') as any;
-
-  const { commands } = instanceResource.Metadata['AWS::CloudFormation::Init'].config;
-  const downloadCommand = Object.values(commands).find((cmd: any) => cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz'));
+  const instanceResource = Object.values(template.Resources).find((resource: any) => 
+    resource.Type === 'AWS::EC2::Instance'
+  ) as any;
+  
+  const commands = instanceResource.Metadata['AWS::CloudFormation::Init'].config.commands;
+  const downloadCommand = Object.values(commands).find((cmd: any) => 
+    cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz')
+  );
   expect(downloadCommand).toBeDefined();
 });
 
@@ -1272,13 +1276,17 @@ test('Test S3 distribution URL support for OpenSearch Dashboards in single-node 
 
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
-
+  
   // Verify that the CloudFormation Init contains download commands for dashboards with S3 URL
   const template = infraTemplate.toJSON();
-  const instanceResource = Object.values(template.Resources).find((resource: any) => resource.Type === 'AWS::EC2::Instance') as any;
-
-  const { commands } = instanceResource.Metadata['AWS::CloudFormation::Init'].config;
-  const downloadCommand = Object.values(commands).find((cmd: any) => cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-dashboards-2.11.0-linux-x64.tar.gz'));
+  const instanceResource = Object.values(template.Resources).find((resource: any) => 
+    resource.Type === 'AWS::EC2::Instance'
+  ) as any;
+  
+  const commands = instanceResource.Metadata['AWS::CloudFormation::Init'].config.commands;
+  const downloadCommand = Object.values(commands).find((cmd: any) => 
+    cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-dashboards-2.11.0-linux-x64.tar.gz')
+  );
   expect(downloadCommand).toBeDefined();
 });
 
@@ -1312,18 +1320,24 @@ test('Test both S3 distribution URLs for OpenSearch and Dashboards in single-nod
 
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
-
+  
   const template = infraTemplate.toJSON();
-  const instanceResource = Object.values(template.Resources).find((resource: any) => resource.Type === 'AWS::EC2::Instance') as any;
-
-  const { commands } = instanceResource.Metadata['AWS::CloudFormation::Init'].config;
-
+  const instanceResource = Object.values(template.Resources).find((resource: any) => 
+    resource.Type === 'AWS::EC2::Instance'
+  ) as any;
+  
+  const commands = instanceResource.Metadata['AWS::CloudFormation::Init'].config.commands;
+  
   // Check OpenSearch download command
-  const opensearchCommand = Object.values(commands).find((cmd: any) => cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz'));
+  const opensearchCommand = Object.values(commands).find((cmd: any) => 
+    cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz')
+  );
   expect(opensearchCommand).toBeDefined();
-
+  
   // Check Dashboards download command
-  const dashboardsCommand = Object.values(commands).find((cmd: any) => cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-dashboards-2.11.0-linux-x64.tar.gz'));
+  const dashboardsCommand = Object.values(commands).find((cmd: any) => 
+    cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-dashboards-2.11.0-linux-x64.tar.gz')
+  );
   expect(dashboardsCommand).toBeDefined();
 });
 
@@ -1359,22 +1373,27 @@ test('Test S3 distribution URL support in multi-node cluster', () => {
 
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
-
+  
   // Verify that Auto Scaling Groups are created
   infraTemplate.resourceCountIs('AWS::AutoScaling::AutoScalingGroup', 3);
-
+  
   // Verify that all ASGs have the S3 download commands in their metadata
   const template = infraTemplate.toJSON();
-  const asgResources = Object.values(template.Resources).filter((resource: any) => resource.Type === 'AWS::AutoScaling::AutoScalingGroup') as any[];
-
+  const asgResources = Object.values(template.Resources).filter((resource: any) => 
+    resource.Type === 'AWS::AutoScaling::AutoScalingGroup'
+  ) as any[];
+  
   asgResources.forEach((asg) => {
-    const { commands } = asg.Metadata['AWS::CloudFormation::Init'].config;
-
+    const commands = asg.Metadata['AWS::CloudFormation::Init'].config.commands;
+    
     // Check that download command exists
-    const downloadCommand = Object.values(commands).find((cmd: any) => cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz'));
+    const downloadCommand = Object.values(commands).find((cmd: any) => 
+      cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz')
+    );
     expect(downloadCommand).toBeDefined();
   });
 });
+
 
 test('Test S3 distribution URL with security enabled', () => {
   const app = new App({
@@ -1407,7 +1426,7 @@ test('Test S3 distribution URL with security enabled', () => {
 
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
-
+  
   // Verify that the instance is created and has S3 permissions
   infraTemplate.resourceCountIs('AWS::EC2::Instance', 1);
   infraTemplate.hasResourceProperties('AWS::IAM::Role', {
@@ -1487,21 +1506,25 @@ test('Test S3 distribution URL with custom IAM role', () => {
 
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
-
+  
   // Verify that no new IAM role is created (using custom role)
   infraTemplate.resourceCountIs('AWS::IAM::Role', 0);
-
+  
   // Verify that the instance profile uses the custom role
   infraTemplate.hasResourceProperties('AWS::IAM::InstanceProfile', {
     Roles: ['CustomOpenSearchRole'],
   });
-
+  
   // Verify download commands are still present
   const template = infraTemplate.toJSON();
-  const instanceResource = Object.values(template.Resources).find((resource: any) => resource.Type === 'AWS::EC2::Instance') as any;
-
-  const { commands } = instanceResource.Metadata['AWS::CloudFormation::Init'].config;
-  const downloadCommand = Object.values(commands).find((cmd: any) => cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz'));
+  const instanceResource = Object.values(template.Resources).find((resource: any) => 
+    resource.Type === 'AWS::EC2::Instance'
+  ) as any;
+  
+  const commands = instanceResource.Metadata['AWS::CloudFormation::Init'].config.commands;
+  const downloadCommand = Object.values(commands).find((cmd: any) => 
+    cmd.command && cmd.command.includes('aws s3 cp') && cmd.command.includes('s3://test-bucket/opensearch-2.11.0-linux-x64.tar.gz')
+  );
   expect(downloadCommand).toBeDefined();
 });
 
