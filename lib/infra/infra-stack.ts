@@ -530,7 +530,7 @@ export class InfraStack extends Stack {
             iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
           }),
         }],
-        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'single-node')),
+        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'single-node', singleNodeInstanceType.toString())),
         initOptions: {
           ignoreFailures: false,
         },
@@ -597,7 +597,7 @@ export class InfraStack extends Stack {
           vpcSubnets: {
             subnetType: SubnetType.PRIVATE_WITH_EGRESS,
           },
-          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'manager')),
+          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'manager', defaultInstanceType.toString())),
           initOptions: {
             ignoreFailures: false,
           },
@@ -643,7 +643,8 @@ export class InfraStack extends Stack {
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
-        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, seedConfig)),
+        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, seedConfig,
+          (seedConfig === 'seed-manager') ? defaultInstanceType.toString() : this.dataInstanceType.toString())),
         initOptions: {
           ignoreFailures: false,
         },
@@ -677,7 +678,7 @@ export class InfraStack extends Stack {
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
-        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'data')),
+        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'data', this.dataInstanceType.toString())),
         initOptions: {
           ignoreFailures: false,
         },
@@ -714,7 +715,7 @@ export class InfraStack extends Stack {
           vpcSubnets: {
             subnetType: SubnetType.PRIVATE_WITH_EGRESS,
           },
-          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'client')),
+          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'client', defaultInstanceType.toString())),
           initOptions: {
             ignoreFailures: false,
           },
@@ -752,7 +753,7 @@ export class InfraStack extends Stack {
           vpcSubnets: {
             subnetType: SubnetType.PRIVATE_WITH_EGRESS,
           },
-          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'ml')),
+          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'ml', this.mlInstanceType.toString())),
           initOptions: {
             ignoreFailures: false,
           },
@@ -792,7 +793,7 @@ export class InfraStack extends Stack {
     }
   }
 
-  private getCfnInitElement(scope: Stack, logGroup: LogGroup, nodeType?: string): InitElement[] {
+  private getCfnInitElement(scope: Stack, logGroup: LogGroup, nodeType?: string, instanceType?: string): InitElement[] {
     const configFileDir = join(__dirname, '../opensearch-config');
     let opensearchConfig: string;
     let currentWorkDir = '/home/ec2-user';
@@ -822,6 +823,19 @@ export class InfraStack extends Stack {
         ignoreErrors: false,
       }));
       currentWorkDir = '/mnt/data';
+    }
+
+    // Add 2G swap for t3.medium instances
+    if (instanceType === 't3.medium') {
+      cfnInitConfig.push(InitCommand.shellCommand('set -ex; '
+        + 'sudo dd if=/dev/zero of=/swapfile bs=1M count=2048; '
+        + 'sudo chmod 600 /swapfile; '
+        + 'sudo mkswap /swapfile; '
+        + 'sudo swapon /swapfile; '
+        + 'echo "/swapfile swap swap defaults 0 0" | sudo tee -a /etc/fstab',
+      {
+        ignoreErrors: false,
+      }));
     }
 
     const isDistributionS3 = InfraStack.isDistributionUrlFromS3(this.distributionUrl);
