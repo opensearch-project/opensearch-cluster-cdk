@@ -63,7 +63,8 @@ export enum x64Ec2InstanceType {
   I3_4XLARGE = 'i3.4xlarge',
   I3_8XLARGE = 'i3.8xlarge',
   INF1_XLARGE = 'inf1.xlarge',
-  INF1_2XLARGE = 'inf1.2xlarge'
+  INF1_2XLARGE = 'inf1.2xlarge',
+  T3_MEDIUM = 't3.medium'
 }
 
 export enum arm64Ec2InstanceType {
@@ -149,6 +150,8 @@ export const getX64InstanceTypes = (instanceType: string): InstanceTypeInfo => {
     return { instance: InstanceType.of(InstanceClass.INF1, InstanceSize.XLARGE), hasInternalStorage: false };
   case x64Ec2InstanceType.INF1_2XLARGE:
     return { instance: InstanceType.of(InstanceClass.INF1, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case x64Ec2InstanceType.T3_MEDIUM:
+    return { instance: InstanceType.of(InstanceClass.T3, InstanceSize.MEDIUM), hasInternalStorage: false };
   default:
     throw new Error(`Invalid instance type provided, please provide any one the following: ${Object.values(x64Ec2InstanceType)}`);
   }
