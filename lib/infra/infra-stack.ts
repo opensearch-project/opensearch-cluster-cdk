@@ -150,6 +150,10 @@ export interface InfraProps extends StackProps {
   readonly loadBalancerType?: LoadBalancerType
   /** Use instance based storage (if supported) on ec2 instance */
   readonly useInstanceBasedStorage?: boolean
+  /** Enable gRPC endpoints */
+  readonly enableGrpc?: boolean
+  /** Map gRPC port on load balancer to */
+  readonly mapGrpcPortTo?: number
 }
 
 export class InfraStack extends Stack {
@@ -218,6 +222,8 @@ export class InfraStack extends Stack {
   private opensearchPortMapping: number;
 
   private opensearchDashboardsPortMapping: number;
+
+  private enableGrpc: boolean;
 
   // checks if the URL is from S3 (starts with s3://), and returns true if it is
   private static isDistributionUrlFromS3(url: string): boolean {
@@ -486,6 +492,23 @@ export class InfraStack extends Stack {
         + ` Current mapping is OpenSearch:${this.opensearchPortMapping} OpenSearch-Dashboards:${this.opensearchDashboardsPortMapping}`);
     }
 
+    const enableGrpcParam = `${props?.enableGrpc ?? scope.node.tryGetContext('enableGrpc')}`;
+    this.enableGrpc = enableGrpcParam === 'true';
+
+    let grpcPortMapping: number | undefined;
+    if (this.enableGrpc) {
+      const grpcPortMap = `${props?.mapGrpcPortTo ?? scope.node.tryGetContext('mapGrpcPortTo')}`;
+      if (grpcPortMap === 'undefined') {
+        grpcPortMapping = 9443;
+      } else {
+        grpcPortMapping = parseInt(grpcPortMap, 10);
+      }
+      if (grpcPortMapping === this.opensearchPortMapping || grpcPortMapping === this.opensearchDashboardsPortMapping) {
+        throw new Error('gRPC cannot be mapped to the same port as OpenSearch or OpenSearch-Dashboards! Please provide different port numbers.'
+          + ` Current mapping is OpenSearch:${this.opensearchPortMapping} Dashboards:${this.opensearchDashboardsPortMapping} gRPC:${grpcPortMapping}`);
+      }
+    }
+
     const useSSLOpensearchListener = !this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined';
     const opensearchListener = InfraStack.createListener(
       this.elb,
@@ -507,6 +530,19 @@ export class InfraStack extends Stack {
         (useSSLDashboardsListener) ? certificateArn : undefined,
       );
     }
+
+    let grpcListener: NetworkListener | ApplicationListener | undefined;
+    if (this.enableGrpc && grpcPortMapping) {
+      const useSSLGrpcListener = !this.securityDisabled && !this.minDistribution && grpcPortMapping === 9443 && certificateArn !== 'undefined';
+      grpcListener = InfraStack.createListener(
+        this.elb,
+        this.elbType,
+        'grpc',
+        grpcPortMapping,
+        (useSSLGrpcListener) ? certificateArn : undefined,
+      );
+    }
+
     if (this.singleNodeCluster) {
       console.log('Single node value is true, creating single node configurations');
       singleNodeInstance = new Instance(this, 'single-node-instance', {
@@ -558,6 +594,18 @@ export class InfraStack extends Stack {
           false,
         );
       }
+
+      if (grpcListener) {
+        InfraStack.addTargetsToListener(
+          grpcListener,
+          this.elbType,
+          'single-node-grpc-target',
+          9443,
+          new InstanceTarget(singleNodeInstance),
+          !this.securityDisabled,
+        );
+      }
+
       new CfnOutput(this, 'private-ip', {
         value: singleNodeInstance.instancePrivateIp,
       });
@@ -783,6 +831,17 @@ export class InfraStack extends Stack {
           false,
         );
       }
+
+      if (grpcListener) {
+        InfraStack.addTargetsToListener(
+          grpcListener,
+          this.elbType,
+          'grpcTarget',
+          9443,
+          clientNodeAsg,
+          !this.securityDisabled,
+        );
+      }
     }
     new CfnOutput(this, 'loadbalancer-url', {
       value: this.elb.loadBalancerDnsName,
@@ -974,6 +1033,18 @@ export class InfraStack extends Stack {
           {
             cwd: currentWorkDir,
           }));
+      }
+
+      if (this.enableGrpc) {
+        cfnInitConfig.push(InitCommand.shellCommand(
+          'set -ex;cd opensearch; echo "grpc.enabled: true" >> config/opensearch.yml',
+          { cwd: currentWorkDir, ignoreErrors: false },
+        ));
+
+        cfnInitConfig.push(InitCommand.shellCommand(
+          'set -ex;cd opensearch; echo "grpc.port: 9443" >> config/opensearch.yml',
+          { cwd: currentWorkDir, ignoreErrors: false },
+        ));
       }
 
       if (this.distributionUrl.includes('artifacts.opensearch.org') && !this.minDistribution) {
