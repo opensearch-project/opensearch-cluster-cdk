@@ -602,7 +602,7 @@ export class InfraStack extends Stack {
           'single-node-grpc-target',
           9443,
           new InstanceTarget(singleNodeInstance),
-          !this.securityDisabled,
+          false,
         );
       }
 
@@ -839,7 +839,7 @@ export class InfraStack extends Stack {
           'grpcTarget',
           9443,
           clientNodeAsg,
-          !this.securityDisabled,
+          false,
         );
       }
     }
