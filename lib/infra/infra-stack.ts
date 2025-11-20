@@ -822,7 +822,8 @@ export class InfraStack extends Stack {
         this.nodeHeapOverrides.set('seed-data', 8);
         if (!this.pluginUrl) {
           const archFolder = this.cpuArch === 'arm64' ? 'arm64' : 'x64';
-          this.pluginUrl = `https://ci.opensearch.org/ci/dbc/feature-build-opensearch/feature-datafusion/latest/linux/${archFolder}/tar/builds/opensearch/core-plugins/engine-datafusion-${this.distVersion}.zip`;
+          this.pluginUrl = `https://ci.opensearch.org/ci/dbc/feature-build-opensearch/feature-datafusion/latest/linux/
+          ${archFolder}/tar/builds/opensearch/core-plugins/engine-datafusion-${this.distVersion}.zip`;
         }
         this.mergeFeatureAdditionalConfig({
           'indexing_pressure.memory.limit': '25%',
