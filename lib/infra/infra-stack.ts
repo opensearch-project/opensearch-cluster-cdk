@@ -138,6 +138,8 @@ export interface InfraProps extends StackProps {
   readonly additionalOsdConfig?: string,
   /** Add any custom configuration files to the cluster */
   readonly customConfigFiles?: string,
+  /** URL to download custom plugin from */
+  readonly pluginUrl?: string,
   /** Whether to enable monioring with alarms */
   readonly enableMonitoring?: boolean,
   /** Certificate ARN to attach to the listener */
@@ -150,6 +152,8 @@ export interface InfraProps extends StackProps {
   readonly loadBalancerType?: LoadBalancerType
   /** Use instance based storage (if supported) on ec2 instance */
   readonly useInstanceBasedStorage?: boolean
+  /** Optional feature flag enabling pre-defined configuration bundles */
+  readonly feature?: string,
 }
 
 export class InfraStack extends Stack {
@@ -213,11 +217,17 @@ export class InfraStack extends Stack {
 
   private customConfigFiles: string;
 
+  private pluginUrl?: string;
+
   private enableMonitoring: boolean;
 
   private opensearchPortMapping: number;
 
   private opensearchDashboardsPortMapping: number;
+
+  private feature?: string;
+
+  private readonly nodeHeapOverrides: Map<string, number> = new Map();
 
   // checks if the URL is from S3 (starts with s3://), and returns true if it is
   private static isDistributionUrlFromS3(url: string): boolean {
@@ -380,8 +390,16 @@ export class InfraStack extends Stack {
 
     this.customConfigFiles = `${props?.customConfigFiles ?? scope.node.tryGetContext('customConfigFiles')}`;
 
+    const pluginUrlContext = `${props?.pluginUrl ?? scope.node.tryGetContext('pluginUrl')}`;
+    this.pluginUrl = pluginUrlContext === 'undefined' ? undefined : pluginUrlContext;
+
+    const featureContext = `${props?.feature ?? scope.node.tryGetContext('feature')}`;
+    this.feature = featureContext === 'undefined' ? undefined : featureContext.toLowerCase();
+
     const use50heap = `${props?.use50PercentHeap ?? scope.node.tryGetContext('use50PercentHeap')}`;
     this.use50PercentHeap = use50heap === 'true';
+
+    this.applyFeatureAdjustments();
 
     const nlbScheme = `${props.isInternal ?? scope.node.tryGetContext('isInternal')}`;
     this.isInternal = nlbScheme === 'true';
@@ -793,6 +811,46 @@ export class InfraStack extends Stack {
     }
   }
 
+  private applyFeatureAdjustments(): void {
+    if (!this.feature) {
+      return;
+    }
+
+    switch (this.feature) {
+      case 'datafusion':
+        this.nodeHeapOverrides.set('data', 8);
+        this.nodeHeapOverrides.set('seed-data', 8);
+        if (!this.pluginUrl) {
+          const archFolder = this.cpuArch === 'arm64' ? 'arm64' : 'x64';
+          this.pluginUrl = `https://ci.opensearch.org/ci/dbc/feature-build-opensearch/feature-datafusion/latest/linux/${archFolder}/tar/builds/opensearch/core-plugins/engine-datafusion-${this.distVersion}.zip`;
+        }
+        this.mergeFeatureAdditionalConfig({
+          'indexing_pressure.memory.limit': '25%',
+          'datafusion.search.memory_pool': '32G',
+        });
+        break;
+      default:
+        throw new Error(`Unsupported feature flag value provided for feature: ${this.feature}`);
+    }
+  }
+
+  private mergeFeatureAdditionalConfig(defaults: Record<string, unknown>): void {
+    let userConfig: Record<string, unknown> = {};
+    if (this.additionalConfig !== 'undefined') {
+      const parsedConfig = load(this.additionalConfig);
+      if (parsedConfig && typeof parsedConfig === 'object') {
+        userConfig = parsedConfig as Record<string, unknown>;
+      }
+    }
+
+    const mergedConfig = {
+      ...defaults,
+      ...userConfig,
+    };
+
+    this.additionalConfig = dump(mergedConfig);
+  }
+
   private getCfnInitElement(scope: Stack, logGroup: LogGroup, nodeType?: string, instanceType?: string): InitElement[] {
     const configFileDir = join(__dirname, '../opensearch-config');
     let opensearchConfig: string;
@@ -1037,6 +1095,13 @@ export class InfraStack extends Stack {
       }));
     }
 
+    if (this.pluginUrl) {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install ${this.pluginUrl} --batch`, {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
+    }
+
     // add config to disable security if required
     if (this.securityDisabled && !this.minDistribution) {
       // eslint-disable-next-line max-len
@@ -1057,8 +1122,17 @@ export class InfraStack extends Stack {
       }));
     }
 
+    const nodeHeapOverride = nodeType ? this.nodeHeapOverrides.get(nodeType) : undefined;
+
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
-    if (this.use50PercentHeap) {
+    if (typeof nodeHeapOverride === 'number') {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
+      sed -i -e "s/^-Xms[0-9a-z]*$/-Xms${nodeHeapOverride}g/g" config/jvm.options;
+      sed -i -e "s/^-Xmx[0-9a-z]*$/-Xmx${nodeHeapOverride}g/g" config/jvm.options;`, {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
+    } else if (this.use50PercentHeap) {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
       totalMem=\`expr $(free -g | awk '/^Mem:/{print $2}') + 1\`;
       heapSizeInGb=\`expr $totalMem / 2\`;
