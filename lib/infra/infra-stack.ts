@@ -122,6 +122,8 @@ export interface InfraProps extends StackProps {
   readonly mlInstanceType?: InstanceType,
   /** Whether to use 50% heap */
   readonly use50PercentHeap?: boolean,
+  /** Explicit heap size (in GB) applied cluster-wide */
+  readonly heapSizeInGb?: number,
   /** Whether the cluster should be internal only */
   readonly isInternal?: boolean,
   /** Whether to enable remote store feature */
@@ -201,6 +203,8 @@ export class InfraStack extends Stack {
 
   private use50PercentHeap: boolean;
 
+  private heapSizeInGb?: number;
+
   private isInternal: boolean;
 
   private enableRemoteStore: boolean;
@@ -226,8 +230,6 @@ export class InfraStack extends Stack {
   private opensearchDashboardsPortMapping: number;
 
   private feature?: string;
-
-  private readonly nodeHeapOverrides: Map<string, number> = new Map();
 
   // checks if the URL is from S3 (starts with s3://), and returns true if it is
   private static isDistributionUrlFromS3(url: string): boolean {
@@ -395,11 +397,24 @@ export class InfraStack extends Stack {
 
     const featureContext = `${props?.feature ?? scope.node.tryGetContext('feature')}`;
     this.feature = featureContext === 'undefined' ? undefined : featureContext.toLowerCase();
+    if (this.feature && this.feature !== 'datafusion') {
+      throw new Error(`Unsupported feature flag value provided for feature: ${this.feature}`);
+    }
+
+    const heapSizeValue = `${props?.heapSizeInGb ?? scope.node.tryGetContext('heapSizeInGb')}`;
+    if (heapSizeValue !== 'undefined') {
+      const parsedHeapSize = parseInt(heapSizeValue, 10);
+      if (Number.isNaN(parsedHeapSize) || parsedHeapSize <= 0) {
+        throw new Error('heapSizeInGb must be a positive integer');
+      }
+      this.heapSizeInGb = parsedHeapSize;
+    }
 
     const use50heap = `${props?.use50PercentHeap ?? scope.node.tryGetContext('use50PercentHeap')}`;
     this.use50PercentHeap = use50heap === 'true';
-
-    this.applyFeatureAdjustments();
+    if (this.heapSizeInGb && this.use50PercentHeap) {
+      throw new Error('Provide either heapSizeInGb or use50PercentHeap, not both');
+    }
 
     const nlbScheme = `${props.isInternal ?? scope.node.tryGetContext('isInternal')}`;
     this.isInternal = nlbScheme === 'true';
@@ -811,47 +826,6 @@ export class InfraStack extends Stack {
     }
   }
 
-  private applyFeatureAdjustments(): void {
-    if (!this.feature) {
-      return;
-    }
-
-    switch (this.feature) {
-      case 'datafusion':
-        this.nodeHeapOverrides.set('data', 8);
-        this.nodeHeapOverrides.set('seed-data', 8);
-        if (!this.pluginUrl) {
-          const archFolder = this.cpuArch === 'arm64' ? 'arm64' : 'x64';
-          this.pluginUrl = `https://ci.opensearch.org/ci/dbc/feature-build-opensearch/feature-datafusion/latest/linux/
-          ${archFolder}/tar/builds/opensearch/core-plugins/engine-datafusion-${this.distVersion}.zip`;
-        }
-        this.mergeFeatureAdditionalConfig({
-          'indexing_pressure.memory.limit': '25%',
-          'datafusion.search.memory_pool': '32G',
-        });
-        break;
-      default:
-        throw new Error(`Unsupported feature flag value provided for feature: ${this.feature}`);
-    }
-  }
-
-  private mergeFeatureAdditionalConfig(defaults: Record<string, unknown>): void {
-    let userConfig: Record<string, unknown> = {};
-    if (this.additionalConfig !== 'undefined') {
-      const parsedConfig = load(this.additionalConfig);
-      if (parsedConfig && typeof parsedConfig === 'object') {
-        userConfig = parsedConfig as Record<string, unknown>;
-      }
-    }
-
-    const mergedConfig = {
-      ...defaults,
-      ...userConfig,
-    };
-
-    this.additionalConfig = dump(mergedConfig);
-  }
-
   private getCfnInitElement(scope: Stack, logGroup: LogGroup, nodeType?: string, instanceType?: string): InitElement[] {
     const configFileDir = join(__dirname, '../opensearch-config');
     let opensearchConfig: string;
@@ -883,6 +857,19 @@ export class InfraStack extends Stack {
       }));
       currentWorkDir = '/mnt/data';
     }
+
+    const isDataNodeType = nodeType === 'data' || nodeType === 'seed-data';
+    const isSingleNodeType = nodeType === 'single-node';
+    const shouldApplyDatafusionFeature = this.feature === 'datafusion'
+      && (isDataNodeType || (this.singleNodeCluster && isSingleNodeType));
+    const featureHeapOverride = shouldApplyDatafusionFeature ? 8 : undefined;
+    const baseHeapOverride = this.heapSizeInGb;
+    const nodeHeapOverride = (typeof featureHeapOverride === 'number')
+      ? featureHeapOverride : baseHeapOverride;
+    const featureAdditionalConfig = shouldApplyDatafusionFeature ? dump({
+      'indexing_pressure.memory.limit': '25%',
+      'datafusion.search.memory_pool': '32G',
+    }) : undefined;
 
     // Add 2G swap for t3.medium instances
     if (instanceType === 't3.medium') {
@@ -1123,8 +1110,6 @@ export class InfraStack extends Stack {
       }));
     }
 
-    const nodeHeapOverride = nodeType ? this.nodeHeapOverrides.get(nodeType) : undefined;
-
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
     if (typeof nodeHeapOverride === 'number') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
@@ -1140,6 +1125,15 @@ export class InfraStack extends Stack {
       if [ $heapSizeInGb -lt 32 ];then minHeap="-Xms"$heapSizeInGb"g";maxHeap="-Xmx"$heapSizeInGb"g";else minHeap="-Xms32g";maxHeap="-Xmx32g";fi
       sed -i -e "s/^-Xms[0-9a-z]*$/$minHeap/g" config/jvm.options;
       sed -i -e "s/^-Xmx[0-9a-z]*$/$maxHeap/g" config/jvm.options;`, {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
+    }
+
+    if (featureAdditionalConfig) {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch/config; echo "${featureAdditionalConfig}">featureConfig.yml; `
+        + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml featureConfig.yml -P',
+      {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
