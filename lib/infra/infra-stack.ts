@@ -140,7 +140,7 @@ export interface InfraProps extends StackProps {
   readonly additionalOsdConfig?: string,
   /** Add any custom configuration files to the cluster */
   readonly customConfigFiles?: string,
-  /** URL to download custom plugin from */
+  /** URL to download custom plugin zip from */
   readonly pluginUrl?: string,
   /** Whether to enable monioring with alarms */
   readonly enableMonitoring?: boolean,
@@ -858,10 +858,11 @@ export class InfraStack extends Stack {
       currentWorkDir = '/mnt/data';
     }
 
-    const isDataNodeType = nodeType === 'data' || nodeType === 'seed-data';
+    const isDataNodeType = nodeType === 'data';
+    const isSeedNodeType = nodeType === 'seed-data';
     const isSingleNodeType = nodeType === 'single-node';
     const shouldApplyDatafusionFeature = this.feature === 'datafusion'
-      && (isDataNodeType || (this.singleNodeCluster && isSingleNodeType));
+      && ((isDataNodeType && !isSeedNodeType) || (this.singleNodeCluster && isSingleNodeType));
     const featureHeapOverride = shouldApplyDatafusionFeature ? 8 : undefined;
     const baseHeapOverride = this.heapSizeInGb;
     const nodeHeapOverride = (typeof featureHeapOverride === 'number')
