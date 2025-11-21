@@ -122,7 +122,7 @@ export interface InfraProps extends StackProps {
   readonly mlInstanceType?: InstanceType,
   /** Whether to use 50% heap */
   readonly use50PercentHeap?: boolean,
-  /** Explicit heap size (in GB) applied cluster-wide */
+  /** Explicit heap size (in GB) applied across data nodes */
   readonly heapSizeInGb?: number,
   /** Whether the cluster should be internal only */
   readonly isInternal?: boolean,
@@ -154,8 +154,6 @@ export interface InfraProps extends StackProps {
   readonly loadBalancerType?: LoadBalancerType
   /** Use instance based storage (if supported) on ec2 instance */
   readonly useInstanceBasedStorage?: boolean
-  /** Optional feature flag enabling pre-defined configuration bundles */
-  readonly feature?: string,
 }
 
 export class InfraStack extends Stack {
@@ -228,8 +226,6 @@ export class InfraStack extends Stack {
   private opensearchPortMapping: number;
 
   private opensearchDashboardsPortMapping: number;
-
-  private feature?: string;
 
   // checks if the URL is from S3 (starts with s3://), and returns true if it is
   private static isDistributionUrlFromS3(url: string): boolean {
@@ -394,12 +390,6 @@ export class InfraStack extends Stack {
 
     const pluginUrlContext = `${props?.pluginUrl ?? scope.node.tryGetContext('pluginUrl')}`;
     this.pluginUrl = pluginUrlContext === 'undefined' ? undefined : pluginUrlContext;
-
-    const featureContext = `${props?.feature ?? scope.node.tryGetContext('feature')}`;
-    this.feature = featureContext === 'undefined' ? undefined : featureContext.toLowerCase();
-    if (this.feature && this.feature !== 'datafusion') {
-      throw new Error(`Unsupported feature flag value provided for feature: ${this.feature}`);
-    }
 
     const heapSizeValue = `${props?.heapSizeInGb ?? scope.node.tryGetContext('heapSizeInGb')}`;
     if (heapSizeValue !== 'undefined') {
@@ -858,19 +848,8 @@ export class InfraStack extends Stack {
       currentWorkDir = '/mnt/data';
     }
 
-    const isDataNodeType = nodeType === 'data';
-    const isSeedNodeType = nodeType === 'seed-data';
-    const isSingleNodeType = nodeType === 'single-node';
-    const shouldApplyDatafusionFeature = this.feature === 'datafusion'
-      && ((isDataNodeType && !isSeedNodeType) || (this.singleNodeCluster && isSingleNodeType));
-    const featureHeapOverride = shouldApplyDatafusionFeature ? 8 : undefined;
-    const baseHeapOverride = this.heapSizeInGb;
-    const nodeHeapOverride = (typeof featureHeapOverride === 'number')
-      ? featureHeapOverride : baseHeapOverride;
-    const featureAdditionalConfig = shouldApplyDatafusionFeature ? dump({
-      'indexing_pressure.memory.limit': '25%',
-      'datafusion.search.memory_pool': '32G',
-    }) : undefined;
+    const nodeHeapOverride = (nodeType === 'data' || nodeType === 'seed-data' || nodeType === 'single-node')
+      ? this.heapSizeInGb : undefined;
 
     // Add 2G swap for t3.medium instances
     if (instanceType === 't3.medium') {
@@ -1126,15 +1105,6 @@ export class InfraStack extends Stack {
       if [ $heapSizeInGb -lt 32 ];then minHeap="-Xms"$heapSizeInGb"g";maxHeap="-Xmx"$heapSizeInGb"g";else minHeap="-Xms32g";maxHeap="-Xmx32g";fi
       sed -i -e "s/^-Xms[0-9a-z]*$/$minHeap/g" config/jvm.options;
       sed -i -e "s/^-Xmx[0-9a-z]*$/$maxHeap/g" config/jvm.options;`, {
-        cwd: currentWorkDir,
-        ignoreErrors: false,
-      }));
-    }
-
-    if (featureAdditionalConfig) {
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch/config; echo "${featureAdditionalConfig}">featureConfig.yml; `
-        + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml featureConfig.yml -P',
-      {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
