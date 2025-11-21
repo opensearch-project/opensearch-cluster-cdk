@@ -1560,3 +1560,253 @@ describe.each([
     });
   });
 });
+
+test('Test gRPC listener is created when enableGrpc is true', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'https://artifacts.opensearch.org/releases/bundle/opensearch/3.0.0/opensearch-3.0.0-linux-x64.tar.gz',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      enableGrpc: true,
+      mapGrpcPortTo: 9443,
+      adminPassword: 'Admin_1234',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+
+  // Should have 3 listeners: REST + Dashboards + gRPC
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 3);
+
+  // Check gRPC listener properties
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 9443,
+    Protocol: 'TCP',
+  });
+
+  // Should have 3 target groups: REST + Dashboards + gRPC
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 3);
+
+  // Check gRPC target group properties
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
+    Port: 9443,
+    Protocol: 'TCP',
+  });
+});
+
+test('Test no gRPC resources when enableGrpc is false', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      enableGrpc: false,
+      adminPassword: 'Admin_1234',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+
+  // Should have only 2 listeners: REST + Dashboards (NO gRPC)
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::Listener', 2);
+
+  // Should have only 2 target groups: REST + Dashboards (NO gRPC)
+  infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
+});
+
+test('Test gRPC port defaults to 9443 when not specified', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      enableGrpc: true,
+      adminPassword: 'Admin_1234',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+
+  // Should default to port 9443
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 9443,
+    Protocol: 'TCP',
+  });
+});
+
+test('Throw error when gRPC port conflicts with REST port', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      enableGrpc: true,
+      mapGrpcPortTo: 443,
+      adminPassword: 'Admin_1234',
+    },
+  });
+
+  // WHEN & THEN
+  try {
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // @ts-ignore
+    expect(error.message).toEqual('gRPC cannot be mapped to the same port as OpenSearch or OpenSearch-Dashboards! Please provide different port numbers. Current mapping is OpenSearch:443 Dashboards:8443 gRPC:443');
+  }
+});
+
+test('Throw error when gRPC port conflicts with Dashboards port', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      enableGrpc: true,
+      mapGrpcPortTo: 8443,
+      adminPassword: 'Admin_1234',
+    },
+  });
+
+  // WHEN & THEN
+  try {
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // @ts-ignore
+    expect(error.message).toEqual('gRPC cannot be mapped to the same port as OpenSearch or OpenSearch-Dashboards! Please provide different port numbers. Current mapping is OpenSearch:443 Dashboards:8443 gRPC:8443');
+  }
+});
+
+test('Test gRPC with custom port mapping', () => {
+  const app = new App({
+    context: {
+      securityDisabled: false,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '3.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      enableGrpc: true,
+      mapGrpcPortTo: 9999,
+      adminPassword: 'Admin_1234',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+
+  // Should use custom port 9999
+  infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
+    Port: 9999,
+    Protocol: 'TCP',
+  });
+});
