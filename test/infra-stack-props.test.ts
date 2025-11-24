@@ -201,6 +201,74 @@ test('Throw error on missing some parameter', () => {
   }
 });
 
+test('Throw error when heapSizeInGb is not a positive integer', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      heapSizeInGb: 0,
+    },
+  });
+
+  try {
+    const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // @ts-ignore
+    new InfraStack(app, 'opensearch-infra-stack', {
+      vpc: networkStack.vpc,
+      securityGroup: networkStack.osSecurityGroup,
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // @ts-ignore
+    expect(error.message).toEqual('heapSizeInGb must be a positive integer');
+  }
+});
+
+test('Sets heapSizeInGb and pluginUrl from context when provided', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      heapSizeInGb: 8,
+      pluginUrl: 'https://example.com/plugin.zip',
+    },
+  });
+
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  expect((infraStack as any).heapSizeInGb).toEqual(8);
+  expect((infraStack as any).pluginUrl).toEqual('https://example.com/plugin.zip');
+});
+
 test('Throw error on invalid CPU Arch', () => {
   const app = new App({
     context: {

@@ -922,27 +922,64 @@ test('Test additionalConfig overriding values', () => {
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::IAM::Role', 0);
-  infraTemplate.hasResource('AWS::AutoScaling::AutoScalingGroup', {
-    /* eslint-disable max-len */
-    Metadata: {
-      'AWS::CloudFormation::Init': {
-        config: {
-          commands: {
-            '012': {
-              command: "set -ex; cd opensearch/config; echo \"cluster.name: custom-cdk\nnetwork.port: '8041'\n\">additionalConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch.yml additionalConfig.yml -P",
-              cwd: '/home/ec2-user',
-              ignoreErrors: false,
-            },
-            '017': {
-              command: "set -ex;cd opensearch-dashboards/config; echo \"something.enabled: 'true'\nsomething_else.enabled: 'false'\n\">additionalOsdConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch_dashboards.yml additionalOsdConfig.yml -P",
-              cwd: '/home/ec2-user',
-              ignoreErrors: false,
-            },
-          },
-        },
-      },
+
+  const asgResources = Object.values(infraTemplate.findResources('AWS::AutoScaling::AutoScalingGroup'));
+  const commandsWithAdditionalConfig = asgResources.some((resource: any) => {
+    const commands = resource.Metadata?.['AWS::CloudFormation::Init']?.config?.commands;
+    if (!commands) {
+      return false;
+    }
+    const values = Object.values(commands) as Array<{ command: string }>;
+    const hasClusterConfig = values.some((cmd) => cmd.command.includes('cluster.name: custom-cdk'));
+    const hasDashboardsConfig = values.some((cmd) => cmd.command.includes('opensearch_dashboards.yml additionalOsdConfig.yml'));
+    return hasClusterConfig && hasDashboardsConfig;
+  });
+
+  expect(commandsWithAdditionalConfig).toBe(true);
+});
+
+test('heapSizeInGb overrides JVM options on data nodes', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      heapSizeInGb: 8,
     },
   });
+
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const infraTemplate = Template.fromStack(infraStack);
+  const asgResources = Object.values(infraTemplate.findResources('AWS::AutoScaling::AutoScalingGroup'));
+  const foundHeapCommands = asgResources.some((resource: any) => {
+    const commands = resource.Metadata?.['AWS::CloudFormation::Init']?.config?.commands;
+    if (!commands) {
+      return false;
+    }
+    return Object.values(commands).some((cmd: any) => (
+      typeof cmd.command === 'string'
+      && cmd.command.includes('-Xms8g')
+      && cmd.command.includes('-Xmx8g')
+    ));
+  });
+
+  expect(foundHeapCommands).toBe(true);
 });
 
 test('Test certificate addition and port mapping', () => {

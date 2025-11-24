@@ -120,8 +120,6 @@ export interface InfraProps extends StackProps {
   readonly dataInstanceType?: InstanceType,
   /** EC2 instance type for ML nodes */
   readonly mlInstanceType?: InstanceType,
-  /** Whether to use 50% heap */
-  readonly use50PercentHeap?: boolean,
   /** Explicit heap size (in GB) applied across data nodes */
   readonly heapSizeInGb?: number,
   /** Whether the cluster should be internal only */
@@ -198,8 +196,6 @@ export class InfraStack extends Stack {
   private dataInstanceType: InstanceType;
 
   private mlInstanceType: InstanceType;
-
-  private use50PercentHeap: boolean;
 
   private heapSizeInGb?: number;
 
@@ -398,12 +394,6 @@ export class InfraStack extends Stack {
         throw new Error('heapSizeInGb must be a positive integer');
       }
       this.heapSizeInGb = parsedHeapSize;
-    }
-
-    const use50heap = `${props?.use50PercentHeap ?? scope.node.tryGetContext('use50PercentHeap')}`;
-    this.use50PercentHeap = use50heap === 'true';
-    if (this.heapSizeInGb && this.use50PercentHeap) {
-      throw new Error('Provide either heapSizeInGb or use50PercentHeap, not both');
     }
 
     const nlbScheme = `${props.isInternal ?? scope.node.tryGetContext('isInternal')}`;
@@ -1098,7 +1088,7 @@ export class InfraStack extends Stack {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
-    } else if (this.use50PercentHeap) {
+    } else { // If no value is provided, use 50 percent heap
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
       totalMem=\`expr $(free -g | awk '/^Mem:/{print $2}') + 1\`;
       heapSizeInGb=\`expr $totalMem / 2\`;
