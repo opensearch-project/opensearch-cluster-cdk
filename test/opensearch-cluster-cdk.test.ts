@@ -9,6 +9,7 @@ import { App, Stack } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
+import { arm64Ec2InstanceType, x64Ec2InstanceType } from '../lib/opensearch-config/node-config';
 
 test('Test Resources with security disabled multi-node default instance types', () => {
   const app = new App({
@@ -394,11 +395,9 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
+    const arm64InstanceList = Object.values(arm64Ec2InstanceType).join(',');
     // @ts-ignore
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,'
-        + 'c6a.xlarge,c6a.2xlarge,c6a.4xlarge,c6g.large,c6g.xlarge,c6g.2xlarge,c6gd.xlarge,c6gd.2xlarge,c6gd.4xlarge,c6gd.8xlarge,'
-        + 'r6g.large,r6g.xlarge,r6g.2xlarge, r6g.4xlarge,r6g.8xlarge,r6gd.xlarge,r6gd.2xlarge,r6gd.4xlarge,r6gd.8xlarge,r7gd.xlarge,' 
-        + 'r7gd.2xlarge,r7gd.4xlarge,r7gd.8xlarge,g5g.large,g5g.xlarge');
+    expect(error.message).toEqual(`Invalid instance type provided, please provide any one the following: ${arm64InstanceList}`);
   }
 });
 
@@ -437,11 +436,9 @@ test('Throw error on ec2 instance outside of enum list', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
+    const x64InstanceList = Object.values(x64Ec2InstanceType).join(',');
     // @ts-ignore
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,'
-        + 'c6a.xlarge,c6a.2xlarge,c6a.4xlarge,c6g.large,c6g.xlarge,c6g.2xlarge,c6gd.xlarge,c6gd.2xlarge,c6gd.4xlarge,c6gd.8xlarge,'
-        + 'r6g.large,r6g.xlarge,r6g.2xlarge, r6g.4xlarge,r6g.8xlarge,r6gd.xlarge,r6gd.2xlarge,r6gd.4xlarge,r6gd.8xlarge,r7gd.xlarge,' 
-        + 'r7gd.2xlarge,r7gd.4xlarge,r7gd.8xlarge,g5g.large,g5g.xlarge');
+    expect(error.message).toEqual(`Invalid instance type provided, please provide any one the following: ${x64InstanceList}`);
   }
 });
 
