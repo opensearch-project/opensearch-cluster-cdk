@@ -64,7 +64,10 @@ export enum x64Ec2InstanceType {
   I3_8XLARGE = 'i3.8xlarge',
   INF1_XLARGE = 'inf1.xlarge',
   INF1_2XLARGE = 'inf1.2xlarge',
-  T3_MEDIUM = 't3.medium'
+  T3_MEDIUM = 't3.medium',
+  C6A_XLARGE = 'c6a.xlarge',
+  C6A_2XLARGE = 'c6a.2xlarge',
+  C6A_4XLARGE = 'c6a.4xlarge'
 }
 
 export enum arm64Ec2InstanceType {
@@ -114,6 +117,12 @@ export const getX64InstanceTypes = (instanceType: string): InstanceTypeInfo => {
     return { instance: InstanceType.of(InstanceClass.C5D, InstanceSize.XLARGE), hasInternalStorage: true };
   case x64Ec2InstanceType.C5D_2XLARGE:
     return { instance: InstanceType.of(InstanceClass.C5D, InstanceSize.XLARGE2), hasInternalStorage: true };
+  case x64Ec2InstanceType.C6A_XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C6A, InstanceSize.XLARGE), hasInternalStorage: false };
+  case x64Ec2InstanceType.C6A_2XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C6A, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case x64Ec2InstanceType.C6A_4XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C6A, InstanceSize.XLARGE4), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_LARGE:
     return { instance: InstanceType.of(InstanceClass.R5, InstanceSize.LARGE), hasInternalStorage: false };
   case x64Ec2InstanceType.R5_XLARGE:

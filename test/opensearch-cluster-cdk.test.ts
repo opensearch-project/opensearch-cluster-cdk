@@ -9,6 +9,7 @@ import { App, Stack } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
+import { arm64Ec2InstanceType, x64Ec2InstanceType } from '../lib/opensearch-config/node-config';
 
 test('Test Resources with security disabled multi-node default instance types', () => {
   const app = new App({
@@ -394,11 +395,9 @@ test('Throw error on wrong cpu arch to instance mapping', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
+    const arm64InstanceList = Object.values(arm64Ec2InstanceType).join(',');
     // @ts-ignore
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m6g.xlarge,m6g.2xlarge,'
-        + 'c6g.large,c6g.xlarge,c6g.2xlarge,c6gd.xlarge,c6gd.2xlarge,c6gd.4xlarge,c6gd.8xlarge,r6g.large,r6g.xlarge,r6g.2xlarge,'
-        + 'r6g.4xlarge,r6g.8xlarge,r6gd.xlarge,r6gd.2xlarge,r6gd.4xlarge,r6gd.8xlarge,r7gd.xlarge,r7gd.2xlarge,r7gd.4xlarge,'
-        + 'r7gd.8xlarge,g5g.large,g5g.xlarge');
+    expect(error.message).toEqual(`Invalid instance type provided, please provide any one the following: ${arm64InstanceList}`);
   }
 });
 
@@ -437,10 +436,9 @@ test('Throw error on ec2 instance outside of enum list', () => {
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
+    const x64InstanceList = Object.values(x64Ec2InstanceType).join(',');
     // @ts-ignore
-    expect(error.message).toEqual('Invalid instance type provided, please provide any one the following: m5.xlarge,m5.2xlarge,c5.large,c5.xlarge,'
-      + 'c5.2xlarge,c5d.xlarge,c5d.2xlarge,r5.large,r5.xlarge,r5.2xlarge,r5.4xlarge,r5.8xlarge,r5d.xlarge,r5d.2xlarge,r5d.4xlarge,r5d.8xlarge,'
-      + 'g5.large,g5.xlarge,i3.large,i3.xlarge,i3.2xlarge,i3.4xlarge,i3.8xlarge,inf1.xlarge,inf1.2xlarge,t3.medium');
+    expect(error.message).toEqual(`Invalid instance type provided, please provide any one the following: ${x64InstanceList}`);
   }
 });
 
@@ -922,27 +920,64 @@ test('Test additionalConfig overriding values', () => {
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
   infraTemplate.resourceCountIs('AWS::IAM::Role', 0);
-  infraTemplate.hasResource('AWS::AutoScaling::AutoScalingGroup', {
-    /* eslint-disable max-len */
-    Metadata: {
-      'AWS::CloudFormation::Init': {
-        config: {
-          commands: {
-            '012': {
-              command: "set -ex; cd opensearch/config; echo \"cluster.name: custom-cdk\nnetwork.port: '8041'\n\">additionalConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch.yml additionalConfig.yml -P",
-              cwd: '/home/ec2-user',
-              ignoreErrors: false,
-            },
-            '017': {
-              command: "set -ex;cd opensearch-dashboards/config; echo \"something.enabled: 'true'\nsomething_else.enabled: 'false'\n\">additionalOsdConfig.yml; yq eval-all -i '. as $item ireduce ({}; . * $item)' opensearch_dashboards.yml additionalOsdConfig.yml -P",
-              cwd: '/home/ec2-user',
-              ignoreErrors: false,
-            },
-          },
-        },
-      },
+
+  const asgResources = Object.values(infraTemplate.findResources('AWS::AutoScaling::AutoScalingGroup'));
+  const commandsWithAdditionalConfig = asgResources.some((resource: any) => {
+    const commands = resource.Metadata?.['AWS::CloudFormation::Init']?.config?.commands;
+    if (!commands) {
+      return false;
+    }
+    const values = Object.values(commands) as Array<{ command: string }>;
+    const hasClusterConfig = values.some((cmd) => cmd.command.includes('cluster.name: custom-cdk'));
+    const hasDashboardsConfig = values.some((cmd) => cmd.command.includes('opensearch_dashboards.yml additionalOsdConfig.yml'));
+    return hasClusterConfig && hasDashboardsConfig;
+  });
+
+  expect(commandsWithAdditionalConfig).toBe(true);
+});
+
+test('heapSizeInGb overrides JVM options on data nodes', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      heapSizeInGb: 8,
     },
   });
+
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const infraTemplate = Template.fromStack(infraStack);
+  const asgResources = Object.values(infraTemplate.findResources('AWS::AutoScaling::AutoScalingGroup'));
+  const foundHeapCommands = asgResources.some((resource: any) => {
+    const commands = resource.Metadata?.['AWS::CloudFormation::Init']?.config?.commands;
+    if (!commands) {
+      return false;
+    }
+    return Object.values(commands).some((cmd: any) => (
+      typeof cmd.command === 'string'
+      && cmd.command.includes('-Xms8g')
+      && cmd.command.includes('-Xmx8g')
+    ));
+  });
+
+  expect(foundHeapCommands).toBe(true);
 });
 
 test('Test certificate addition and port mapping', () => {

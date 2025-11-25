@@ -120,8 +120,8 @@ export interface InfraProps extends StackProps {
   readonly dataInstanceType?: InstanceType,
   /** EC2 instance type for ML nodes */
   readonly mlInstanceType?: InstanceType,
-  /** Whether to use 50% heap */
-  readonly use50PercentHeap?: boolean,
+  /** Explicit heap size (in GB) applied across data nodes */
+  readonly heapSizeInGb?: number,
   /** Whether the cluster should be internal only */
   readonly isInternal?: boolean,
   /** Whether to enable remote store feature */
@@ -138,6 +138,8 @@ export interface InfraProps extends StackProps {
   readonly additionalOsdConfig?: string,
   /** Add any custom configuration files to the cluster */
   readonly customConfigFiles?: string,
+  /** URL to download custom plugin zip from */
+  readonly pluginUrl?: string,
   /** Whether to enable monioring with alarms */
   readonly enableMonitoring?: boolean,
   /** Certificate ARN to attach to the listener */
@@ -199,7 +201,7 @@ export class InfraStack extends Stack {
 
   private mlInstanceType: InstanceType;
 
-  private use50PercentHeap: boolean;
+  private heapSizeInGb?: number;
 
   private isInternal: boolean;
 
@@ -216,6 +218,8 @@ export class InfraStack extends Stack {
   private additionalOsdConfig: string;
 
   private customConfigFiles: string;
+
+  private pluginUrl?: string;
 
   private enableMonitoring: boolean;
 
@@ -386,8 +390,17 @@ export class InfraStack extends Stack {
 
     this.customConfigFiles = `${props?.customConfigFiles ?? scope.node.tryGetContext('customConfigFiles')}`;
 
-    const use50heap = `${props?.use50PercentHeap ?? scope.node.tryGetContext('use50PercentHeap')}`;
-    this.use50PercentHeap = use50heap === 'true';
+    const pluginUrlContext = `${props?.pluginUrl ?? scope.node.tryGetContext('pluginUrl')}`;
+    this.pluginUrl = pluginUrlContext === 'undefined' ? undefined : pluginUrlContext;
+
+    const heapSizeValue = `${props?.heapSizeInGb ?? scope.node.tryGetContext('heapSizeInGb')}`;
+    if (heapSizeValue !== 'undefined') {
+      const parsedHeapSize = parseInt(heapSizeValue, 10);
+      if (Number.isNaN(parsedHeapSize) || parsedHeapSize <= 0) {
+        throw new Error('heapSizeInGb must be a positive integer');
+      }
+      this.heapSizeInGb = parsedHeapSize;
+    }
 
     const nlbScheme = `${props.isInternal ?? scope.node.tryGetContext('isInternal')}`;
     this.isInternal = nlbScheme === 'true';
@@ -884,6 +897,9 @@ export class InfraStack extends Stack {
       currentWorkDir = '/mnt/data';
     }
 
+    const nodeHeapOverride = (nodeType === 'data' || nodeType === 'seed-data' || nodeType === 'single-node')
+      ? this.heapSizeInGb : undefined;
+
     // Add 2G swap for t3.medium instances
     if (instanceType === 't3.medium') {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex; '
@@ -1108,6 +1124,13 @@ export class InfraStack extends Stack {
       }));
     }
 
+    if (this.pluginUrl) {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch;sudo -u ec2-user bin/opensearch-plugin install ${this.pluginUrl} --batch`, {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
+    }
+
     // add config to disable security if required
     if (this.securityDisabled && !this.minDistribution) {
       // eslint-disable-next-line max-len
@@ -1129,7 +1152,14 @@ export class InfraStack extends Stack {
     }
 
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
-    if (this.use50PercentHeap) {
+    if (typeof nodeHeapOverride === 'number') {
+      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
+      sed -i -e "s/^-Xms[0-9a-z]*$/-Xms${nodeHeapOverride}g/g" config/jvm.options;
+      sed -i -e "s/^-Xmx[0-9a-z]*$/-Xmx${nodeHeapOverride}g/g" config/jvm.options;`, {
+        cwd: currentWorkDir,
+        ignoreErrors: false,
+      }));
+    } else { // If no value is provided, use 50 percent heap
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
       totalMem=\`expr $(free -g | awk '/^Mem:/{print $2}') + 1\`;
       heapSizeInGb=\`expr $totalMem / 2\`;
