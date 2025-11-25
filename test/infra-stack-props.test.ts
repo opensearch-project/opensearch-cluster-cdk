@@ -1,3 +1,4 @@
+/* global fail */
 /* Copyright OpenSearch Contributors
 SPDX-License-Identifier: Apache-2.0
 
@@ -40,6 +41,8 @@ test('Throw error on incorrect JSON for opensearch', () => {
     });
 
     // eslint-disable-next-line no-undef
+    // eslint-disable-next-line no-undef
+    // eslint-disable-next-line no-undef
     fail('Expected an error to be thrown');
   } catch (error) {
     expect(error).toBeInstanceOf(Error);
@@ -78,6 +81,7 @@ test('Throw error on incorrect JSON for opensearch-dashboards', () => {
       env: { account: 'test-account', region: 'us-east-1' },
     });
 
+    // eslint-disable-next-line no-undef
     // eslint-disable-next-line no-undef
     fail('Expected an error to be thrown');
   } catch (error) {
