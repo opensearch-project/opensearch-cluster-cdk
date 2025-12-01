@@ -44,6 +44,7 @@ export enum x64Ec2InstanceType {
   C5_LARGE = 'c5.large',
   C5_XLARGE = 'c5.xlarge',
   C5_2XLARGE = 'c5.2xlarge',
+  C5_4XLARGE = 'c5.4xlarge',
   C5D_XLARGE = 'c5d.xlarge',
   C5D_2XLARGE = 'c5d.2xlarge',
   R5_LARGE = 'r5.large',
@@ -76,6 +77,7 @@ export enum arm64Ec2InstanceType {
   C6G_LARGE = 'c6g.large',
   C6G_XLARGE = 'c6g.xlarge',
   C6G_2XLARGE = 'c6g.2xlarge',
+  C6G_4XLARGE = 'c6g.4xlarge',
   C6GD_XLARGE = 'c6gd.xlarge',
   C6GD_2XLARGE = 'c6gd.2xlarge',
   C6GD_4XLARGE = 'c6gd.4xlarge',
@@ -113,6 +115,8 @@ export const getX64InstanceTypes = (instanceType: string): InstanceTypeInfo => {
     return { instance: InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE), hasInternalStorage: false };
   case x64Ec2InstanceType.C5_2XLARGE:
     return { instance: InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case x64Ec2InstanceType.C5_4XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C5, InstanceSize.XLARGE4), hasInternalStorage: false };
   case x64Ec2InstanceType.C5D_XLARGE:
     return { instance: InstanceType.of(InstanceClass.C5D, InstanceSize.XLARGE), hasInternalStorage: true };
   case x64Ec2InstanceType.C5D_2XLARGE:
@@ -178,6 +182,8 @@ export const getArm64InstanceTypes = (instanceType: string): InstanceTypeInfo =>
     return { instance: InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE), hasInternalStorage: false };
   case arm64Ec2InstanceType.C6G_2XLARGE:
     return { instance: InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case arm64Ec2InstanceType.C6G_4XLARGE:
+    return { instance: InstanceType.of(InstanceClass.C6G, InstanceSize.XLARGE4), hasInternalStorage: false };
   case arm64Ec2InstanceType.C6GD_XLARGE:
     return { instance: InstanceType.of(InstanceClass.C6GD, InstanceSize.XLARGE), hasInternalStorage: true };
   case arm64Ec2InstanceType.C6GD_2XLARGE:
