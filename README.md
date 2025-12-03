@@ -193,6 +193,35 @@ Each EC2 instance will create its own log-stream and the log-stream will be name
 
 All the ec2 instances are hosted in private subnet and can only be accessed using [AWS Systems Manager Session Manager](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager.html)
 
+### EC2 KeyPair
+
+An EC2 KeyPair is automatically created for all instances during deployment. The keypair name is available in the CloudFormation stack outputs as `keypair-name`.
+
+To retrieve the private key value:
+
+1. Get the keypair name from the stack outputs:
+   ```bash
+   aws cloudformation describe-stacks --stack-name <your-stack-name> --query "Stacks[0].Outputs[?OutputKey=='keypair-name'].OutputValue" --output text
+   ```
+
+2. Retrieve the private key from AWS Systems Manager Parameter Store:
+   ```bash
+   aws ssm get-parameter --name /ec2/keypair/<keypair-id> --with-decryption --query Parameter.Value --output text
+   ```
+   
+   Note: Replace `<keypair-id>` with the actual KeyPair ID. You can find the KeyPair ID by running:
+   ```bash
+   aws ec2 describe-key-pairs --filters "Name=key-name,Values=<keypair-name>" --query "KeyPairs[0].KeyPairId" --output text
+   ```
+
+3. Save the private key to a file and set appropriate permissions:
+   ```bash
+   aws ssm get-parameter --name /ec2/keypair/<keypair-id> --with-decryption --query Parameter.Value --output text > my-key.pem
+   chmod 400 my-key.pem
+   ```
+
+You can then use this key to SSH into instances (if you've configured appropriate security group rules and have direct network access).
+
 ## Port Mapping
 
 The ports to access the cluster are dependent on the `security` parameter value and are identical whether using an Application Load Balancer (ALB) or a Network Load Balancer (NLB):

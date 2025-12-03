@@ -23,6 +23,7 @@ import {
   InstanceClass,
   InstanceSize,
   InstanceType,
+  KeyPair,
   LaunchTemplate,
   MachineImage,
   SubnetType,
@@ -228,6 +229,8 @@ export class InfraStack extends Stack {
   private opensearchDashboardsPortMapping: number;
 
   private enableGrpc: boolean;
+
+  private keyPair: KeyPair;
 
   // checks if the URL is from S3 (starts with s3://), and returns true if it is
   private static isDistributionUrlFromS3(url: string): boolean {
@@ -522,6 +525,10 @@ export class InfraStack extends Stack {
       }
     }
 
+    this.keyPair = new KeyPair(this, `${id}-ec2-keypair`, {
+      keyPairName: `${id}-keypair`,
+    });
+
     const useSSLOpensearchListener = !this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined';
     const opensearchListener = InfraStack.createListener(
       this.elb,
@@ -571,6 +578,7 @@ export class InfraStack extends Stack {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
         securityGroup: props.securityGroup,
+        keyPair: this.keyPair,
         blockDevices: [{
           deviceName: '/dev/xvda',
           volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
@@ -640,6 +648,7 @@ export class InfraStack extends Stack {
             }),
             role: this.instanceRole,
             securityGroup: props.securityGroup,
+            keyPair: this.keyPair,
             blockDevices: [{
               deviceName: '/dev/xvda',
               volume: BlockDeviceVolume.ebs(50, {
@@ -679,6 +688,7 @@ export class InfraStack extends Stack {
           }),
           role: this.instanceRole,
           securityGroup: props.securityGroup,
+          keyPair: this.keyPair,
           blockDevices: [{
             deviceName: '/dev/xvda',
             // eslint-disable-next-line max-len
@@ -721,6 +731,7 @@ export class InfraStack extends Stack {
           }),
           role: this.instanceRole,
           securityGroup: props.securityGroup,
+          keyPair: this.keyPair,
           blockDevices: [{
             deviceName: '/dev/xvda',
             volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
@@ -758,6 +769,7 @@ export class InfraStack extends Stack {
             }),
             role: this.instanceRole,
             securityGroup: props.securityGroup,
+            keyPair: this.keyPair,
             blockDevices: [{
               deviceName: '/dev/xvda',
               volume: BlockDeviceVolume.ebs(50, {
@@ -796,6 +808,7 @@ export class InfraStack extends Stack {
             }),
             role: this.instanceRole,
             securityGroup: props.securityGroup,
+            keyPair: this.keyPair,
             blockDevices: [{
               deviceName: '/dev/xvda',
               volume: BlockDeviceVolume.ebs(this.mlNodeStorage, {
@@ -858,6 +871,11 @@ export class InfraStack extends Stack {
     }
     new CfnOutput(this, 'loadbalancer-url', {
       value: this.elb.loadBalancerDnsName,
+    });
+
+    new CfnOutput(this, 'keypair-name', {
+      value: this.keyPair.keyPairName,
+      description: 'EC2 KeyPair name. Private key is stored in AWS Systems Manager Parameter Store.',
     });
 
     if (this.enableMonitoring) {
