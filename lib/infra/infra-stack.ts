@@ -426,12 +426,15 @@ export class InfraStack extends Stack {
         assumedBy: new ServicePrincipal('ec2.amazonaws.com'),
       });
     } else {
-      this.instanceRole = <Role>Role.fromRoleArn(this, 'custom-role-arn', `${this.customRoleArn}`);
+      this.instanceRole = <Role>Role.fromRoleArn(this, 'custom-role-arn', `${this.customRoleArn}`, { mutable: false });
     }
 
     const remoteStore = `${props?.enableRemoteStore ?? scope.node.tryGetContext('enableRemoteStore')}`;
     this.enableRemoteStore = remoteStore === 'true';
     if (this.enableRemoteStore) {
+      if (this.customRoleArn !== 'undefined') {
+        throw new Error('enableRemoteStore cannot be used with customRoleArn. The custom role must have S3 permissions pre-configured.');
+      }
       // Remote Store needs an S3 bucket to be registered as snapshot repo
       // Add scoped bucket policy to the instance role attached to the EC2
       const remoteStoreObj = new RemoteStoreResources(this);
