@@ -99,14 +99,15 @@ export enum arm64Ec2InstanceType {
   R7GD_2XLARGE = 'r7gd.2xlarge',
   R7GD_4XLARGE = 'r7gd.4xlarge',
   R7GD_8XLARGE = 'r7gd.8xlarge',
-  R8G_XLARGE = 'r8g.xlarge',
-  R8G_2XLARGE = 'r8g.2xlarge',
-  R8G_4XLARGE = 'r8g.4xlarge',
-  R8G_8XLARGE = 'r8g.8xlarge',
-  R8GD_XLARGE = 'r8gd.xlarge',
-  R8GD_2XLARGE = 'r8gd.2xlarge',
-  R8GD_4XLARGE = 'r8gd.4xlarge',
-  R8GD_8XLARGE = 'r8gd.8xlarge',
+// Disabling temporarily till we upgrade the nightly benchmarks ami to use Node 20, it currently has node 18 which doesn't support below instance types in the aws-cdk-lib version 2.248.0
+ // R8G_XLARGE = 'r8g.xlarge',
+ // R8G_2XLARGE = 'r8g.2xlarge',
+ // R8G_4XLARGE = 'r8g.4xlarge',
+ // R8G_8XLARGE = 'r8g.8xlarge',
+ // R8GD_XLARGE = 'r8gd.xlarge',
+ // R8GD_2XLARGE = 'r8gd.2xlarge',
+ // R8GD_4XLARGE = 'r8gd.4xlarge',
+ // R8GD_8XLARGE = 'r8gd.8xlarge',
   G5G_LARGE = 'g5g.large',
   G5G_XLARGE = 'g5g.xlarge'
 }
@@ -238,22 +239,22 @@ export const getArm64InstanceTypes = (instanceType: string): InstanceTypeInfo =>
     return { instance: InstanceType.of(InstanceClass.R7GD, InstanceSize.XLARGE4), hasInternalStorage: true };
   case arm64Ec2InstanceType.R7GD_8XLARGE:
     return { instance: InstanceType.of(InstanceClass.R7GD, InstanceSize.XLARGE8), hasInternalStorage: true };
-  case arm64Ec2InstanceType.R8G_XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE), hasInternalStorage: false };
-  case arm64Ec2InstanceType.R8G_2XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE2), hasInternalStorage: false };
-  case arm64Ec2InstanceType.R8G_4XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE4), hasInternalStorage: false };
-  case arm64Ec2InstanceType.R8G_8XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE8), hasInternalStorage: false };
-  case arm64Ec2InstanceType.R8GD_XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE), hasInternalStorage: true };
-  case arm64Ec2InstanceType.R8GD_2XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE2), hasInternalStorage: true };
-  case arm64Ec2InstanceType.R8GD_4XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE4), hasInternalStorage: true };
-  case arm64Ec2InstanceType.R8GD_8XLARGE:
-    return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE8), hasInternalStorage: true };
+  // case arm64Ec2InstanceType.R8G_XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE), hasInternalStorage: false };
+  // case arm64Ec2InstanceType.R8G_2XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE2), hasInternalStorage: false };
+  // case arm64Ec2InstanceType.R8G_4XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE4), hasInternalStorage: false };
+  // case arm64Ec2InstanceType.R8G_8XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8G, InstanceSize.XLARGE8), hasInternalStorage: false };
+  // case arm64Ec2InstanceType.R8GD_XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE), hasInternalStorage: true };
+  // case arm64Ec2InstanceType.R8GD_2XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE2), hasInternalStorage: true };
+  // case arm64Ec2InstanceType.R8GD_4XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE4), hasInternalStorage: true };
+  // case arm64Ec2InstanceType.R8GD_8XLARGE:
+  //  return { instance: InstanceType.of(InstanceClass.R8GD, InstanceSize.XLARGE8), hasInternalStorage: true };
   case arm64Ec2InstanceType.G5G_LARGE:
     return { instance: InstanceType.of(InstanceClass.G5G, InstanceSize.LARGE), hasInternalStorage: true };
   case arm64Ec2InstanceType.G5G_XLARGE:
