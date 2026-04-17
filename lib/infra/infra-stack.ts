@@ -685,12 +685,14 @@ export class InfraStack extends Stack {
           blockDevices: [{
             deviceName: '/dev/xvda',
             // eslint-disable-next-line max-len
-            volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(50,
+            volume: (seedConfig === 'seed-manager') ? BlockDeviceVolume.ebs(
+              50,
               {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
                 iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
-              })
+              },
+            )
               : BlockDeviceVolume.ebs(this.dataNodeStorage, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
@@ -707,8 +709,12 @@ export class InfraStack extends Stack {
         vpcSubnets: {
           subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
-        init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, seedConfig,
-          (seedConfig === 'seed-manager') ? defaultInstanceType.toString() : this.dataInstanceType.toString())),
+        init: CloudFormationInit.fromElements(...this.getCfnInitElement(
+          this,
+          clusterLogGroup,
+          seedConfig,
+          (seedConfig === 'seed-manager') ? defaultInstanceType.toString() : this.dataInstanceType.toString(),
+        )),
         initOptions: {
           ignoreFailures: false,
         },
@@ -892,11 +898,13 @@ export class InfraStack extends Stack {
     }
 
     if ((nodeType === 'data' || nodeType === 'single-node') && this.useInstanceBasedStorage) {
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex; sudo mkfs -t xfs /dev/nvme1n1; '
+      cfnInitConfig.push(InitCommand.shellCommand(
+        'set -ex; sudo mkfs -t xfs /dev/nvme1n1; '
         + 'sudo mkdir /mnt/data; sudo mount /dev/nvme1n1 /mnt/data; sudo chown -R ec2-user:ec2-user /mnt/data',
-      {
-        ignoreErrors: false,
-      }));
+        {
+          ignoreErrors: false,
+        },
+      ));
       currentWorkDir = '/mnt/data';
     }
 
@@ -905,15 +913,17 @@ export class InfraStack extends Stack {
 
     // Add 2G swap for t3.medium instances
     if (instanceType === 't3.medium') {
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex; '
+      cfnInitConfig.push(InitCommand.shellCommand(
+        'set -ex; '
         + 'sudo dd if=/dev/zero of=/swapfile bs=1M count=2048; '
         + 'sudo chmod 600 /swapfile; '
         + 'sudo mkswap /swapfile; '
         + 'sudo swapon /swapfile; '
         + 'echo "/swapfile swap swap defaults 0 0" | sudo tee -a /etc/fstab',
-      {
-        ignoreErrors: false,
-      }));
+        {
+          ignoreErrors: false,
+        },
+      ));
     }
 
     const isDistributionS3 = InfraStack.isDistributionUrlFromS3(this.distributionUrl);
@@ -924,7 +934,8 @@ export class InfraStack extends Stack {
       InitCommand.shellCommand('arc=$(arch); if [ "$arc" == "aarch64" ]; then dist="arm64"; else dist="amd64"; fi; '
         + 'sudo wget -nv https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_$dist '
         + '-O /usr/bin/yq && sudo chmod 755 /usr/bin/yq'),
-      CloudwatchAgent.asInitFile('/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json',
+      CloudwatchAgent.asInitFile(
+        '/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json',
         {
           agent: {
             metrics_collection_interval: 60,
@@ -1000,7 +1011,8 @@ export class InfraStack extends Stack {
             },
             force_flush_interval: 5,
           },
-        }),
+        },
+      ),
       InitCommand.shellCommand('set -ex;/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop'),
       // eslint-disable-next-line max-len
       InitCommand.shellCommand('set -ex;/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s'),
@@ -1027,10 +1039,12 @@ export class InfraStack extends Stack {
       fileContent['cluster.name'] = `${scope.stackName}-${scope.account}-${scope.region}`;
 
       opensearchConfig = dump(fileContent).toString();
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "${opensearchConfig}" > config/opensearch.yml`,
+      cfnInitConfig.push(InitCommand.shellCommand(
+        `set -ex;cd opensearch; echo "${opensearchConfig}" > config/opensearch.yml`,
         {
           cwd: currentWorkDir,
-        }));
+        },
+      ));
     } else {
       const baseConfig: any = load(readFileSync(`${configFileDir}/multi-node-base-config.yml`, 'utf-8'));
 
@@ -1040,18 +1054,22 @@ export class InfraStack extends Stack {
       baseConfig['discovery.ec2.tag.Name'] = `${scope.stackName}/seedNodeLt,${scope.stackName}/managerNodeLt`;
 
       const commonConfig = dump(baseConfig).toString();
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "${commonConfig}" > config/opensearch.yml`,
+      cfnInitConfig.push(InitCommand.shellCommand(
+        `set -ex;cd opensearch; echo "${commonConfig}" > config/opensearch.yml`,
         {
           cwd: currentWorkDir,
-        }));
+        },
+      ));
 
       if (nodeType != null) {
         const nodeTypeConfig = nodeConfig.get(nodeType);
         const nodeConfigData = dump(nodeTypeConfig).toString();
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; echo "${nodeConfigData}" >> config/opensearch.yml`,
+        cfnInitConfig.push(InitCommand.shellCommand(
+          `set -ex;cd opensearch; echo "${nodeConfigData}" >> config/opensearch.yml`,
           {
             cwd: currentWorkDir,
-          }));
+          },
+        ));
       }
 
       if (this.enableGrpc) {
@@ -1136,22 +1154,26 @@ export class InfraStack extends Stack {
 
     // add config to disable security if required
     if (this.securityDisabled && !this.minDistribution) {
-      // eslint-disable-next-line max-len
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch; if [ -d "${currentWorkDir}/opensearch/plugins/opensearch-security" ]; then echo "plugins.security.disabled: true" >> config/opensearch.yml; fi`,
+      cfnInitConfig.push(InitCommand.shellCommand(
+        // eslint-disable-next-line max-len
+        `set -ex;cd opensearch; if [ -d "${currentWorkDir}/opensearch/plugins/opensearch-security" ]; then echo "plugins.security.disabled: true" >> config/opensearch.yml; fi`,
         {
           cwd: currentWorkDir,
           ignoreErrors: false,
-        }));
+        },
+      ));
     }
 
     // Check if there are any jvm properties being passed
     if (this.jvmSysProps.toString() !== 'undefined') {
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch; jvmSysPropsList=$(echo "${this.jvmSysProps.toString()}" | tr ',' '\\n');`
+      cfnInitConfig.push(InitCommand.shellCommand(
+        `set -ex; cd opensearch; jvmSysPropsList=$(echo "${this.jvmSysProps.toString()}" | tr ',' '\\n');`
         + 'for sysProp in $jvmSysPropsList;do echo "-D$sysProp" >> config/jvm.options;done',
-      {
-        cwd: currentWorkDir,
-        ignoreErrors: false,
-      }));
+        {
+          cwd: currentWorkDir,
+          ignoreErrors: false,
+        },
+      ));
     }
 
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
@@ -1175,12 +1197,14 @@ export class InfraStack extends Stack {
     }
 
     if (this.additionalConfig.toString() !== 'undefined') {
-      cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch/config; echo "${this.additionalConfig}">additionalConfig.yml; `
+      cfnInitConfig.push(InitCommand.shellCommand(
+        `set -ex; cd opensearch/config; echo "${this.additionalConfig}">additionalConfig.yml; `
         + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch.yml additionalConfig.yml -P',
-      {
-        cwd: currentWorkDir,
-        ignoreErrors: false,
-      }));
+        {
+          cwd: currentWorkDir,
+          ignoreErrors: false,
+        },
+      ));
     }
 
     if (this.customConfigFiles !== 'undefined') {
@@ -1189,11 +1213,13 @@ export class InfraStack extends Stack {
         Object.keys(jsonObj).forEach((localFileName) => {
           const getConfig = load(readFileSync(localFileName, 'utf-8'));
           const remoteConfigLocation = jsonObj[localFileName];
-          cfnInitConfig.push(InitCommand.shellCommand(`set -ex; echo "${dump(getConfig)}" > ${remoteConfigLocation}`,
+          cfnInitConfig.push(InitCommand.shellCommand(
+            `set -ex; echo "${dump(getConfig)}" > ${remoteConfigLocation}`,
             {
               cwd: currentWorkDir,
               ignoreErrors: false,
-            }));
+            },
+          ));
         });
       } catch (e) {
         throw new Error(`Encountered following error while parsing customConfigFiles json parameter: ${e}`);
@@ -1202,18 +1228,22 @@ export class InfraStack extends Stack {
 
     // Starting OpenSearch based on whether the distribution type is min or bundle
     if (this.minDistribution) { // using (stackProps.minDistribution) condition is not working when false value is being sent
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
+      cfnInitConfig.push(InitCommand.shellCommand(
+        'set -ex;cd opensearch; sudo -u ec2-user nohup ./bin/opensearch >> install.log 2>&1 &',
         {
           cwd: currentWorkDir,
           ignoreErrors: false,
-        }));
+        },
+      ));
     } else {
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; '
+      cfnInitConfig.push(InitCommand.shellCommand(
+        'set -ex;cd opensearch; '
         + `sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
-      {
-        cwd: currentWorkDir,
-        ignoreErrors: false,
-      }));
+        {
+          cwd: currentWorkDir,
+          ignoreErrors: false,
+        },
+      ));
     }
 
     // If OpenSearch-Dashboards URL is present
@@ -1230,30 +1260,36 @@ export class InfraStack extends Stack {
         ignoreErrors: false,
       }));
 
-      cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;echo "server.host: 0.0.0.0" >> config/opensearch_dashboards.yml',
+      cfnInitConfig.push(InitCommand.shellCommand(
+        'set -ex;cd opensearch-dashboards;echo "server.host: 0.0.0.0" >> config/opensearch_dashboards.yml',
         {
           cwd: currentWorkDir,
           ignoreErrors: false,
-        }));
+        },
+      ));
 
       if (this.securityDisabled && !this.minDistribution) {
-        cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch-dashboards;'
+        cfnInitConfig.push(InitCommand.shellCommand(
+          'set -ex;cd opensearch-dashboards;'
           + './bin/opensearch-dashboards-plugin remove securityDashboards --allow-root;'
           + 'sed -i /^opensearch_security/d config/opensearch_dashboards.yml;'
           + 'sed -i \'s/https/http/\' config/opensearch_dashboards.yml',
-        {
-          cwd: currentWorkDir,
-          ignoreErrors: false,
-        }));
+          {
+            cwd: currentWorkDir,
+            ignoreErrors: false,
+          },
+        ));
       }
 
       if (this.additionalOsdConfig.toString() !== 'undefined') {
-        cfnInitConfig.push(InitCommand.shellCommand(`set -ex;cd opensearch-dashboards/config; echo "${this.additionalOsdConfig}">additionalOsdConfig.yml; `
+        cfnInitConfig.push(InitCommand.shellCommand(
+          `set -ex;cd opensearch-dashboards/config; echo "${this.additionalOsdConfig}">additionalOsdConfig.yml; `
           + 'yq eval-all -i \'. as $item ireduce ({}; . * $item)\' opensearch_dashboards.yml additionalOsdConfig.yml -P',
-        {
-          cwd: currentWorkDir,
-          ignoreErrors: false,
-        }));
+          {
+            cwd: currentWorkDir,
+            ignoreErrors: false,
+          },
+        ));
       }
 
       // Starting OpenSearch-Dashboards
@@ -1272,8 +1308,13 @@ export class InfraStack extends Stack {
    * If a certificate is provided, the protocol will be set to TLS/HTTPS.
    * Otherwise, the protocol will be set to TCP/HTTP.
    */
-  private static createListener(elb: BaseLoadBalancer, elbType: LoadBalancerType, id: string, port: number,
-    certificateArn?: string): ApplicationListener | NetworkListener {
+  private static createListener(
+    elb: BaseLoadBalancer,
+    elbType: LoadBalancerType,
+    id: string,
+    port: number,
+    certificateArn?: string,
+  ): ApplicationListener | NetworkListener {
     const useSSL = !!certificateArn;
 
     let protocol: ApplicationProtocol | Protocol;
@@ -1313,8 +1354,14 @@ export class InfraStack extends Stack {
    * Adds targets to the given listener.
    * Works for both Application Load Balancers and Network Load Balancers.
    */
-  private static addTargetsToListener(listener: BaseListener, elbType: LoadBalancerType, id: string, port: number, target: AutoScalingGroup | InstanceTarget,
-    securityEnabled: boolean) {
+  private static addTargetsToListener(
+    listener: BaseListener,
+    elbType: LoadBalancerType,
+    id: string,
+    port: number,
+    target: AutoScalingGroup | InstanceTarget,
+    securityEnabled: boolean,
+  ) {
     switch (elbType) {
     case LoadBalancerType.ALB: {
       const albListener = listener as ApplicationListener;
