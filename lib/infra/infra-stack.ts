@@ -630,6 +630,9 @@ export class InfraStack extends Stack {
       new CfnOutput(this, 'private-ip', {
         value: singleNodeInstance.instancePrivateIp,
       });
+      new CfnOutput(this, 'instance-id', {
+        value: singleNodeInstance.instanceId,
+      });
     } else {
       if (this.managerNodeCount > 0) {
         managerAsgCapacity = this.managerNodeCount - 1;
