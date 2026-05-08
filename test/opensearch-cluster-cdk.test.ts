@@ -1609,7 +1609,7 @@ test('Test gRPC listener is created when enableGrpc is true', () => {
       serverAccessType: 'ipv4',
       restrictServerAccessTo: 'all',
       enableGrpc: true,
-      mapGrpcPortTo: 9443,
+      mapGrpcPortTo: 9450,
       adminPassword: 'Admin_1234',
     },
   });
@@ -1634,7 +1634,7 @@ test('Test gRPC listener is created when enableGrpc is true', () => {
 
   // Check gRPC listener properties
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
-    Port: 9443,
+    Port: 9450,
     Protocol: 'TCP',
   });
 
@@ -1643,7 +1643,7 @@ test('Test gRPC listener is created when enableGrpc is true', () => {
 
   // Check gRPC target group properties
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::TargetGroup', {
-    Port: 9443,
+    Port: 9450,
     Protocol: 'TCP',
   });
 });
@@ -1687,7 +1687,7 @@ test('Test no gRPC resources when enableGrpc is false', () => {
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
 });
 
-test('Test gRPC port defaults to 9443 when not specified', () => {
+test('Test gRPC port defaults to 9450 when not specified', () => {
   const app = new App({
     context: {
       securityDisabled: false,
@@ -1719,9 +1719,9 @@ test('Test gRPC port defaults to 9443 when not specified', () => {
   // THEN
   const infraTemplate = Template.fromStack(infraStack);
 
-  // Should default to port 9443
+  // Should default to port 9450
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::Listener', {
-    Port: 9443,
+    Port: 9450,
     Protocol: 'TCP',
   });
 });
