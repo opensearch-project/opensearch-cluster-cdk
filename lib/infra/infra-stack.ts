@@ -1209,7 +1209,8 @@ export class InfraStack extends Stack {
         }));
     } else {
       cfnInitConfig.push(InitCommand.shellCommand('set -ex;cd opensearch; '
-        + `sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./opensearch-tar-install.sh >> install.log 2>&1 &`,
+        // eslint-disable-next-line max-len
+        + `INSTALL_SCRIPT=$(ls opensearch-tar-install*.sh); sudo -u ec2-user nohup env OPENSEARCH_INITIAL_ADMIN_PASSWORD=${this.adminPassword} ./$INSTALL_SCRIPT >> install.log 2>&1 &`,
       {
         cwd: currentWorkDir,
         ignoreErrors: false,
