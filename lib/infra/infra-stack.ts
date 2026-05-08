@@ -25,6 +25,8 @@ import {
   InstanceType,
   LaunchTemplate,
   MachineImage,
+  Peer,
+  Port,
   SubnetType,
   UserData,
 } from 'aws-cdk-lib/aws-ec2';
@@ -515,7 +517,7 @@ export class InfraStack extends Stack {
     if (this.enableGrpc) {
       const grpcPortMap = `${props?.mapGrpcPortTo ?? scope.node.tryGetContext('mapGrpcPortTo')}`;
       if (grpcPortMap === 'undefined') {
-        grpcPortMapping = 9443;
+        grpcPortMapping = 9450;
       } else {
         grpcPortMapping = parseInt(grpcPortMap, 10);
       }
@@ -523,6 +525,9 @@ export class InfraStack extends Stack {
         throw new Error('gRPC cannot be mapped to the same port as OpenSearch or OpenSearch-Dashboards! Please provide different port numbers.'
           + ` Current mapping is OpenSearch:${this.opensearchPortMapping} Dashboards:${this.opensearchDashboardsPortMapping} gRPC:${grpcPortMapping}`);
       }
+
+      // Allow inbound traffic on the gRPC port
+      props.securityGroup.addIngressRule(Peer.anyIpv4(), Port.tcp(grpcPortMapping), 'Allow gRPC traffic');
     }
 
     const useSSLOpensearchListener = !this.securityDisabled && !this.minDistribution && this.opensearchPortMapping === 443 && certificateArn !== 'undefined';
@@ -549,7 +554,7 @@ export class InfraStack extends Stack {
 
     let grpcListener: NetworkListener | ApplicationListener | undefined;
     if (this.enableGrpc && grpcPortMapping) {
-      const useSSLGrpcListener = !this.securityDisabled && !this.minDistribution && grpcPortMapping === 9443 && certificateArn !== 'undefined';
+      const useSSLGrpcListener = !this.securityDisabled && !this.minDistribution && grpcPortMapping === 9450 && certificateArn !== 'undefined';
       grpcListener = InfraStack.createListener(
         this.elb,
         this.elbType,
@@ -616,7 +621,7 @@ export class InfraStack extends Stack {
           grpcListener,
           this.elbType,
           'single-node-grpc-target',
-          9443,
+          9450,
           new InstanceTarget(singleNodeInstance),
           false,
         );
@@ -853,7 +858,7 @@ export class InfraStack extends Stack {
           grpcListener,
           this.elbType,
           'grpcTarget',
-          9443,
+          9450,
           clientNodeAsg,
           false,
         );
@@ -1056,12 +1061,12 @@ export class InfraStack extends Stack {
 
       if (this.enableGrpc) {
         cfnInitConfig.push(InitCommand.shellCommand(
-          'set -ex;cd opensearch; echo "grpc.enabled: true" >> config/opensearch.yml',
+          'set -ex;cd opensearch; echo "aux.transport.types: transport-grpc" >> config/opensearch.yml',
           { cwd: currentWorkDir, ignoreErrors: false },
         ));
 
         cfnInitConfig.push(InitCommand.shellCommand(
-          'set -ex;cd opensearch; echo "grpc.port: 9443" >> config/opensearch.yml',
+          'set -ex;cd opensearch; echo "aux.transport.transport-grpc.port: 9450" >> config/opensearch.yml',
           { cwd: currentWorkDir, ignoreErrors: false },
         ));
       }
