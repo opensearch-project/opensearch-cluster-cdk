@@ -53,24 +53,26 @@ export class NetworkStack extends Stack {
       serverAccess = NetworkStack.getServerAccess(restrictServerAccessTo, serverAccessType);
     }
 
+    const maxAzsCtx = `${scope.node.tryGetContext('maxAzs')}`;
+    const maxAzs = maxAzsCtx !== 'undefined' ? parseInt(maxAzsCtx, 10) : 3;
+    const natGatewaysCtx = `${scope.node.tryGetContext('natGateways')}`;
+    const natGateways = natGatewaysCtx !== 'undefined' ? parseInt(natGatewaysCtx, 10) : undefined;
+
+    const subnetConfiguration = natGateways === 0
+      ? [{ name: 'public-subnet', subnetType: SubnetType.PUBLIC, cidrMask: 24 }]
+      : [
+        { name: 'public-subnet', subnetType: SubnetType.PUBLIC, cidrMask: 24 },
+        { name: 'private-subnet', subnetType: SubnetType.PRIVATE_WITH_EGRESS, cidrMask: 24 },
+      ];
+
     // VPC specs
     if (vpcId === 'undefined') {
       console.log('No VPC-Id Provided, a new VPC will be created');
       this.vpc = new Vpc(this, 'opensearchClusterVpc', {
         ipAddresses: IpAddresses.cidr(cidrRange),
-        maxAzs: 3,
-        subnetConfiguration: [
-          {
-            name: 'public-subnet',
-            subnetType: SubnetType.PUBLIC,
-            cidrMask: 24,
-          },
-          {
-            name: 'private-subnet',
-            subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-            cidrMask: 24,
-          },
-        ],
+        maxAzs,
+        natGateways,
+        subnetConfiguration,
       });
     } else {
       console.log('VPC provided, using existing');
@@ -97,6 +99,10 @@ export class NetworkStack extends Stack {
     this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(5601));
     this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(8443));
     this.osSecurityGroup.addIngressRule(this.osSecurityGroup, Port.allTraffic());
+
+    if (natGateways === 0 && vpcId === 'undefined') {
+      this.osSecurityGroup.addIngressRule(Peer.ipv4(cidrRange), Port.tcp(9200));
+    }
   }
 
   private static getServerAccess(restrictServerAccessTo: string, serverAccessType: string): IPeer {
