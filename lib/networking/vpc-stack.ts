@@ -99,10 +99,6 @@ export class NetworkStack extends Stack {
     this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(5601));
     this.osSecurityGroup.addIngressRule(serverAccess, Port.tcp(8443));
     this.osSecurityGroup.addIngressRule(this.osSecurityGroup, Port.allTraffic());
-
-    if (natGateways === 0 && vpcId === 'undefined') {
-      this.osSecurityGroup.addIngressRule(Peer.ipv4(cidrRange), Port.tcp(9200));
-    }
   }
 
   private static getServerAccess(restrictServerAccessTo: string, serverAccessType: string): IPeer {
