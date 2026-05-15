@@ -58,6 +58,13 @@ export class NetworkStack extends Stack {
     const natGatewaysCtx = `${scope.node.tryGetContext('natGateways')}`;
     const natGateways = natGatewaysCtx !== 'undefined' ? parseInt(natGatewaysCtx, 10) : undefined;
 
+    if (natGateways === 0 && serverAccessType === 'ipv4' && restrictServerAccessTo === 'all') {
+      throw new Error(
+        'Public subnet mode (natGateways=0) requires restrictServerAccessTo to be a specific CIDR, '
+        + 'or use prefixList/securityGroupId access type to avoid exposing the cluster to the internet',
+      );
+    }
+
     const subnetConfiguration = natGateways === 0
       ? [{ name: 'public-subnet', subnetType: SubnetType.PUBLIC, cidrMask: 24 }]
       : [
