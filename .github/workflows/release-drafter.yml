@@ -1,4 +1,4 @@
-name: Draft a release
+name: Release Workflow
 
 on:
   push:
@@ -6,49 +6,31 @@ on:
       - "*"
 
 jobs:
-  draft-a-release:
+  release-to-npm:
+    environment: release-approval
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # Required for OIDC
+      id-token: write
       contents: write
-      issues: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - id: get_data
-        run: |
-          echo "approvers=$(cat .github/CODEOWNERS | grep @ | tr -d '* ' | sed 's/@/,/g' | sed 's/,//1')" >> $GITHUB_OUTPUT
-          echo "version=$(cat package.json | jq .version | tr -d "\"")" >> $GITHUB_OUTPUT
-      - uses: trstringer/manual-approval@v1
-        with:
-          secret: ${{ github.TOKEN }}
-          approvers: ${{ steps.get_data.outputs.approvers }}
-          minimum-approvals: 2
-          issue-title: 'Release opensearch-cluster-cdk : ${{ steps.get_data.outputs.version }}'
-          issue-body: "Please approve or deny the release of opensearch-cluster-cdk. **VERSION**: ${{ steps.get_data.outputs.version }} **TAG**: ${{ github.ref_name }}  **COMMIT**: ${{ github.sha }}"
-          exclude-workflow-initiator-as-approver: true
-      - name: Set up node
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16.16.0
-          registry-url: 'https://registry.npmjs.org'
-      - name: Build and package
-        run: |
-          npm install && npm run build
-          npm pack
-          filename=`ls | grep opensearch-project-opensearch-cluster-cdk`
-          mkdir publish-cluster-cdk && mv $filename publish-cluster-cdk/opensearch-cluster-cdk.tar.gz
-          tar -cvf artifacts.tar.gz publish-cluster-cdk
-      - uses: actions/setup-node@v4
+        uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
       - run: npm ci
+
+      - name: Build
+        run: npm install && npm run build
+
       - run: npm publish
-      - name: Draft a release
-        uses: softprops/action-gh-release@v1
+
+      - name: Create a release
+        uses: softprops/action-gh-release@v2
         with:
           draft: false
           generate_release_notes: true
-          files: |
-            artifacts.tar.gz
