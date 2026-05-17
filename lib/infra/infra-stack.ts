@@ -472,6 +472,7 @@ export class InfraStack extends Stack {
         vpc: props.vpc,
         internetFacing: (!this.isInternal),
         crossZoneEnabled: true,
+        securityGroups: [props.securityGroup],
       });
       break;
     case LoadBalancerType.ALB:
