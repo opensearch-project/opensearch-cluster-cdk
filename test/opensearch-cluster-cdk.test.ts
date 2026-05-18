@@ -6,7 +6,7 @@ this file be licensed under the Apache-2.0 license or a
 compatible open source license. */
 
 import { App, Stack } from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
 import { arm64Ec2InstanceType, x64Ec2InstanceType } from '../lib/opensearch-config/node-config';
@@ -1804,6 +1804,111 @@ test('Throw error when gRPC port conflicts with Dashboards port', () => {
     // @ts-ignore
     expect(error.message).toEqual('gRPC cannot be mapped to the same port as OpenSearch or OpenSearch-Dashboards! Please provide different port numbers. Current mapping is OpenSearch:443 Dashboards:8443 gRPC:8443');
   }
+});
+
+test('Test VPC with natGateways=0 creates only public subnets', () => {
+  const app = new App({
+    context: {
+      natGateways: '0',
+      maxAzs: '2',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: '10.10.10.10/32',
+    },
+  });
+
+  const netStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const template = Template.fromStack(netStack);
+  template.resourceCountIs('AWS::EC2::NatGateway', 0);
+  template.resourceCountIs('AWS::EC2::VPC', 1);
+  template.resourceCountIs('AWS::EC2::SecurityGroup', 1);
+});
+
+test('Test SG has no VPC CIDR ingress rule on 9200 in public mode', () => {
+  const app = new App({
+    context: {
+      natGateways: '0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: '10.10.10.10/32',
+    },
+  });
+
+  const netStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const template = Template.fromStack(netStack);
+  template.hasResourceProperties('AWS::EC2::SecurityGroup', {
+    SecurityGroupIngress: Match.not(
+      Match.arrayWith([
+        Match.objectLike({
+          CidrIp: '10.0.0.0/16',
+          FromPort: 9200,
+          ToPort: 9200,
+        }),
+      ]),
+    ),
+  });
+});
+
+test('Throw error when natGateways=0 and restrictServerAccessTo is all', () => {
+  const app = new App({
+    context: {
+      natGateways: '0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+    },
+  });
+
+  try {
+    const netStack = new NetworkStack(app, 'opensearch-network-stack', {
+      env: { account: 'test-account', region: 'us-east-1' },
+    });
+
+    // eslint-disable-next-line no-undef
+    fail('Expected an error to be thrown');
+  } catch (error) {
+    expect(error).toBeInstanceOf(Error);
+    // @ts-ignore
+    expect(error.message).toContain('Public subnet mode (natGateways=0) requires restrictServerAccessTo');
+  }
+});
+
+test('Test single-node cluster in public subnet mode with natGateways=0', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: true,
+      distVersion: '2.0.0',
+      serverAccessType: 'prefixList',
+      restrictServerAccessTo: 'pl-12345',
+      natGateways: '0',
+    },
+  });
+
+  const netStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // @ts-ignore
+  const infraStack = new InfraStack(app, 'opensearch-infra-stack', {
+    vpc: netStack.vpc,
+    securityGroup: netStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const infraTemplate = Template.fromStack(infraStack);
+  infraTemplate.resourceCountIs('AWS::EC2::Instance', 1);
+  infraTemplate.hasResourceProperties('AWS::EC2::Instance', {
+    NetworkInterfaces: Match.arrayWith([
+      Match.objectLike({ AssociatePublicIpAddress: true }),
+    ]),
+  });
 });
 
 test('Test gRPC with custom port mapping', () => {
