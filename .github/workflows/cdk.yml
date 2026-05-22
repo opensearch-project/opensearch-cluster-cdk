@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2.4.1
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 # v2
+      - uses: actions/setup-node@270253e841af726300e85d718a5f606959b2903c # v2.4.1
   
       - name: Run CDK Build and Test
         run: | 
@@ -20,4 +20,4 @@ jobs:
         run: |
           npm test -- --coverage
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457 # v3
