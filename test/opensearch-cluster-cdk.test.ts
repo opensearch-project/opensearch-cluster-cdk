@@ -1950,3 +1950,42 @@ test('Test gRPC with custom port mapping', () => {
     Protocol: 'TCP',
   });
 });
+
+test('Test NLB uses the same security group as the cluster', () => {
+  const app = new App({
+    context: {
+      securityDisabled: true,
+      minDistribution: false,
+      distributionUrl: 'www.example.com',
+      cpuArch: 'x64',
+      singleNodeCluster: false,
+      dashboardsUrl: 'www.example.com',
+      distVersion: '1.0.0',
+      serverAccessType: 'ipv4',
+      restrictServerAccessTo: 'all',
+      loadBalancerType: 'nlb',
+    },
+  });
+
+  // WHEN
+  const networkStack = new NetworkStack(app, 'opensearch-network-stack', {
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  const infraStack = new InfraStack(app as unknown as Stack, 'opensearch-infra-stack', {
+    vpc: networkStack.vpc,
+    securityGroup: networkStack.osSecurityGroup,
+    env: { account: 'test-account', region: 'us-east-1' },
+  });
+
+  // THEN
+  const infraTemplate = Template.fromStack(infraStack);
+  const template = infraTemplate.toJSON();
+  const nlbResource = Object.values(template.Resources).find(
+    (r: any) => r.Type === 'AWS::ElasticLoadBalancingV2::LoadBalancer' && r.Properties.Type === 'network',
+  ) as any;
+
+  expect(nlbResource).toBeDefined();
+  expect(nlbResource.Properties.SecurityGroups).toBeDefined();
+  expect(nlbResource.Properties.SecurityGroups.length).toBe(1);
+});
