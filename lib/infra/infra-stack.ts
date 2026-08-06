@@ -308,6 +308,9 @@ export class InfraStack extends Stack {
     const singleNodeCluster = `${props?.singleNodeCluster ?? scope.node.tryGetContext('singleNodeCluster')}`;
     this.singleNodeCluster = singleNodeCluster === 'true';
 
+    const natGatewaysCtx = `${scope.node.tryGetContext('natGateways')}`;
+    const usePublicSubnet = natGatewaysCtx === '0';
+
     const managerCount = `${props?.managerNodeCount ?? scope.node.tryGetContext('managerNodeCount')}`;
     if (managerCount === 'undefined') {
       this.managerNodeCount = 3;
@@ -576,8 +579,9 @@ export class InfraStack extends Stack {
         ),
         role: this.instanceRole,
         vpcSubnets: {
-          subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+          subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
         },
+        associatePublicIpAddress: usePublicSubnet ? true : undefined,
         securityGroup: props.securityGroup,
         blockDevices: [{
           deviceName: '/dev/xvda',
@@ -667,7 +671,7 @@ export class InfraStack extends Stack {
           minCapacity: managerAsgCapacity,
           desiredCapacity: managerAsgCapacity,
           vpcSubnets: {
-            subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+            subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
           },
           init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'manager', defaultInstanceType.toString())),
           initOptions: {
@@ -713,7 +717,7 @@ export class InfraStack extends Stack {
         minCapacity: 1,
         desiredCapacity: 1,
         vpcSubnets: {
-          subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+          subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
         },
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, seedConfig,
           (seedConfig === 'seed-manager') ? defaultInstanceType.toString() : this.dataInstanceType.toString())),
@@ -748,7 +752,7 @@ export class InfraStack extends Stack {
         minCapacity: dataAsgCapacity,
         desiredCapacity: dataAsgCapacity,
         vpcSubnets: {
-          subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+          subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
         },
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'data', this.dataInstanceType.toString())),
         initOptions: {
@@ -785,7 +789,7 @@ export class InfraStack extends Stack {
           minCapacity: this.clientNodeCount,
           desiredCapacity: this.clientNodeCount,
           vpcSubnets: {
-            subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+            subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
           },
           init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'client', defaultInstanceType.toString())),
           initOptions: {
@@ -823,7 +827,7 @@ export class InfraStack extends Stack {
           minCapacity: this.mlNodeCount,
           desiredCapacity: this.mlNodeCount,
           vpcSubnets: {
-            subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+            subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
           },
           init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'ml', this.mlInstanceType.toString())),
           initOptions: {

@@ -95,6 +95,10 @@ export enum arm64Ec2InstanceType {
   R6GD_2XLARGE = 'r6gd.2xlarge',
   R6GD_4XLARGE = 'r6gd.4xlarge',
   R6GD_8XLARGE = 'r6gd.8xlarge',
+  R7G_XLARGE = 'r7g.xlarge',
+  R7G_2XLARGE = 'r7g.2xlarge',
+  R7G_4XLARGE = 'r7g.4xlarge',
+  R7G_8XLARGE = 'r7g.8xlarge',
   R7GD_XLARGE = 'r7gd.xlarge',
   R7GD_2XLARGE = 'r7gd.2xlarge',
   R7GD_4XLARGE = 'r7gd.4xlarge',
@@ -230,6 +234,14 @@ export const getArm64InstanceTypes = (instanceType: string): InstanceTypeInfo =>
     return { instance: InstanceType.of(InstanceClass.R6GD, InstanceSize.XLARGE4), hasInternalStorage: true };
   case arm64Ec2InstanceType.R6GD_8XLARGE:
     return { instance: InstanceType.of(InstanceClass.R6GD, InstanceSize.XLARGE8), hasInternalStorage: true };
+  case arm64Ec2InstanceType.R7G_XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R7G, InstanceSize.XLARGE), hasInternalStorage: false };
+  case arm64Ec2InstanceType.R7G_2XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R7G, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case arm64Ec2InstanceType.R7G_4XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R7G, InstanceSize.XLARGE4), hasInternalStorage: false };
+  case arm64Ec2InstanceType.R7G_8XLARGE:
+    return { instance: InstanceType.of(InstanceClass.R7G, InstanceSize.XLARGE8), hasInternalStorage: false };
   case arm64Ec2InstanceType.R7GD_XLARGE:
     return { instance: InstanceType.of(InstanceClass.R7GD, InstanceSize.XLARGE), hasInternalStorage: true };
   case arm64Ec2InstanceType.R7GD_2XLARGE:
