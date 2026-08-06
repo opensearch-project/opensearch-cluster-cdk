@@ -355,7 +355,7 @@ export class InfraStack extends Stack {
 
     const storageVolType = `${props?.storageVolumeType ?? scope.node.tryGetContext('storageVolumeType')}`;
     if (storageVolType === 'undefined') {
-      this.storageVolumeType = getVolumeType('io1');
+      this.storageVolumeType = getVolumeType('gp3');
     } else {
       this.storageVolumeType = getVolumeType(storageVolType);
     }
@@ -588,7 +588,8 @@ export class InfraStack extends Stack {
           volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
             deleteOnTermination: true,
             volumeType: this.storageVolumeType,
-            iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
+            iops: this.getVolumeIops(5000),
+            throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
           }),
         }],
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'single-node', singleNodeInstanceType.toString())),
@@ -660,7 +661,8 @@ export class InfraStack extends Stack {
               volume: BlockDeviceVolume.ebs(50, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
+                iops: this.getVolumeIops(2500),
+                throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
               }),
             }],
             requireImdsv2: true,
@@ -701,12 +703,14 @@ export class InfraStack extends Stack {
               {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
+                iops: this.getVolumeIops(2500),
+                throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
               })
               : BlockDeviceVolume.ebs(this.dataNodeStorage, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
+                iops: this.getVolumeIops(5000),
+                throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
               }),
           }],
           requireImdsv2: true,
@@ -741,7 +745,8 @@ export class InfraStack extends Stack {
             volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
               deleteOnTermination: true,
               volumeType: this.storageVolumeType,
-              iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
+              iops: this.getVolumeIops(5000),
+              throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
             }),
           }],
           requireImdsv2: true,
@@ -778,7 +783,8 @@ export class InfraStack extends Stack {
               volume: BlockDeviceVolume.ebs(50, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 2500 : 3000,
+                iops: this.getVolumeIops(2500),
+                throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
               }),
             }],
             requireImdsv2: true,
@@ -816,7 +822,8 @@ export class InfraStack extends Stack {
               volume: BlockDeviceVolume.ebs(this.mlNodeStorage, {
                 deleteOnTermination: true,
                 volumeType: this.storageVolumeType,
-                iops: (this.storageVolumeType === EbsDeviceVolumeType.IO1) ? 5000 : 3000,
+                iops: this.getVolumeIops(5000),
+                throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
               }),
             }],
             requireImdsv2: true,
@@ -1169,8 +1176,7 @@ export class InfraStack extends Stack {
     // Check if JVM Heap Memory is set. Default is 1G in the jvm.options file
     if (typeof nodeHeapOverride === 'number') {
       cfnInitConfig.push(InitCommand.shellCommand(`set -ex; cd opensearch;
-      sed -i -e "s/^-Xms[0-9a-z]*$/-Xms${nodeHeapOverride}g/g" config/jvm.options;
-      sed -i -e "s/^-Xmx[0-9a-z]*$/-Xmx${nodeHeapOverride}g/g" config/jvm.options;`, {
+      printf '%s\\n' "-Xms${nodeHeapOverride}g" "-Xmx${nodeHeapOverride}g" >> config/jvm.options;`, {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
@@ -1179,8 +1185,7 @@ export class InfraStack extends Stack {
       totalMem=\`expr $(free -g | awk '/^Mem:/{print $2}') + 1\`;
       heapSizeInGb=\`expr $totalMem / 2\`;
       if [ $heapSizeInGb -lt 32 ];then minHeap="-Xms"$heapSizeInGb"g";maxHeap="-Xmx"$heapSizeInGb"g";else minHeap="-Xms32g";maxHeap="-Xmx32g";fi
-      sed -i -e "s/^-Xms[0-9a-z]*$/$minHeap/g" config/jvm.options;
-      sed -i -e "s/^-Xmx[0-9a-z]*$/$maxHeap/g" config/jvm.options;`, {
+      printf '%s\\n' "$minHeap" "$maxHeap" >> config/jvm.options;`, {
         cwd: currentWorkDir,
         ignoreErrors: false,
       }));
@@ -1356,5 +1361,15 @@ export class InfraStack extends Stack {
     if (this.useInstanceBasedStorage && !hasInstanceStorage) {
       throw new Error('The instance type provided does not have instance backed storage. Please provide correct instance type');
     }
+  }
+
+  private getVolumeIops(io1Iops: number): number {
+    if (this.storageVolumeType === EbsDeviceVolumeType.GP3) {
+      return 3000;
+    }
+    if (this.storageVolumeType === EbsDeviceVolumeType.IO1) {
+      return io1Iops;
+    }
+    return 3000;
   }
 }

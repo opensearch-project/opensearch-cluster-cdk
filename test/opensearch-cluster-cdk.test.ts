@@ -282,8 +282,9 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
           DeviceName: '/dev/xvda',
           Ebs: {
             VolumeSize: 200,
-            VolumeType: 'io1',
-            Iops: 5000,
+            VolumeType: 'gp3',
+            Iops: 3000,
+            Throughput: 500,
           },
         },
       ],
@@ -936,7 +937,7 @@ test('Test additionalConfig overriding values', () => {
   expect(commandsWithAdditionalConfig).toBe(true);
 });
 
-test('heapSizeInGb overrides JVM options on data nodes', () => {
+test('heap settings are appended to JVM options', () => {
   const app = new App({
     context: {
       securityDisabled: true,
@@ -965,19 +966,29 @@ test('heapSizeInGb overrides JVM options on data nodes', () => {
 
   const infraTemplate = Template.fromStack(infraStack);
   const asgResources = Object.values(infraTemplate.findResources('AWS::AutoScaling::AutoScalingGroup'));
-  const foundHeapCommands = asgResources.some((resource: any) => {
+  const heapCommands: string[] = [];
+  asgResources.forEach((resource: any) => {
     const commands = resource.Metadata?.['AWS::CloudFormation::Init']?.config?.commands;
-    if (!commands) {
-      return false;
+    if (commands) {
+      Object.values(commands).forEach((cmd: any) => {
+        if (typeof cmd.command === 'string' && cmd.command.includes('config/jvm.options')) {
+          heapCommands.push(cmd.command);
+        }
+      });
     }
-    return Object.values(commands).some((cmd: any) => (
-      typeof cmd.command === 'string'
-      && cmd.command.includes('-Xms8g')
-      && cmd.command.includes('-Xmx8g')
-    ));
   });
 
-  expect(foundHeapCommands).toBe(true);
+  expect(heapCommands.some((command) => (
+    command.includes('"-Xms8g"')
+    && command.includes('"-Xmx8g"')
+    && command.includes('>> config/jvm.options')
+  ))).toBe(true);
+  expect(heapCommands.some((command) => (
+    command.includes('"$minHeap"')
+    && command.includes('"$maxHeap"')
+    && command.includes('>> config/jvm.options')
+  ))).toBe(true);
+  expect(heapCommands.some((command) => command.includes('sed -i'))).toBe(false);
 });
 
 test('Test certificate addition and port mapping', () => {
