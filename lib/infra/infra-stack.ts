@@ -569,6 +569,18 @@ export class InfraStack extends Stack {
 
     if (this.singleNodeCluster) {
       console.log('Single node value is true, creating single node configurations');
+      const singleNodeLaunchTemplate = new LaunchTemplate(this, 'singleNodeLt', {
+        blockDevices: [{
+          deviceName: '/dev/xvda',
+          volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
+            deleteOnTermination: true,
+            volumeType: this.storageVolumeType,
+            iops: this.getVolumeIops(5000),
+            throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
+          }),
+        }],
+        requireImdsv2: true,
+      });
       singleNodeInstance = new Instance(this, 'single-node-instance', {
         vpc: props.vpc,
         instanceType: singleNodeInstanceType,
@@ -583,21 +595,15 @@ export class InfraStack extends Stack {
         },
         associatePublicIpAddress: usePublicSubnet ? true : undefined,
         securityGroup: props.securityGroup,
-        blockDevices: [{
-          deviceName: '/dev/xvda',
-          volume: BlockDeviceVolume.ebs(this.dataNodeStorage, {
-            deleteOnTermination: true,
-            volumeType: this.storageVolumeType,
-            iops: this.getVolumeIops(5000),
-            throughput: (this.storageVolumeType === EbsDeviceVolumeType.GP3) ? 500 : undefined,
-          }),
-        }],
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'single-node', singleNodeInstanceType.toString())),
         initOptions: {
           ignoreFailures: false,
         },
-        requireImdsv2: true,
       });
+      singleNodeInstance.instance.launchTemplate = {
+        launchTemplateId: singleNodeLaunchTemplate.launchTemplateId,
+        version: singleNodeLaunchTemplate.latestVersionNumber,
+      };
       Tags.of(singleNodeInstance).add('role', 'client');
 
       // Disable target security for now, can be provided as an option in the future
