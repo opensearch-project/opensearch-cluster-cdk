@@ -21,3 +21,4 @@ coverage.lcov
 *.iml
 .idea/
 .vscode/
+AGENT_INSTRUCTIONS.md
