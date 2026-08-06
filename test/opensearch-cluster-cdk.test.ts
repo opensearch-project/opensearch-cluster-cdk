@@ -345,14 +345,23 @@ test('Test Resources with security enabled single-node cluster', () => {
   infraTemplate.resourceCountIs('AWS::ElasticLoadBalancingV2::TargetGroup', 2);
   infraTemplate.hasResourceProperties('AWS::EC2::Instance', {
     InstanceType: 'r5.large',
-    BlockDeviceMappings: [
-      {
+  });
+  infraTemplate.hasResourceProperties('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: {
+      BlockDeviceMappings: [{
+        DeviceName: '/dev/xvda',
         Ebs: {
+          DeleteOnTermination: true,
+          Iops: 3000,
+          Throughput: 500,
           VolumeSize: 200,
           VolumeType: 'gp3',
         },
+      }],
+      MetadataOptions: {
+        HttpTokens: 'required',
       },
-    ],
+    },
   });
   infraTemplate.hasResourceProperties('AWS::ElasticLoadBalancingV2::LoadBalancer', {
     Scheme: 'internal',
