@@ -11,21 +11,21 @@ import { EbsDeviceVolumeType } from 'aws-cdk-lib/aws-autoscaling';
 export const nodeConfig = new Map<string, object>();
 
 nodeConfig.set('manager', {
-  'node.roles': ['cluster_manager'],
+  'node.roles': ['cluster_manager', 'remote_cluster_client'],
 });
 
 nodeConfig.set('data', {
-  'node.roles': ['data', 'ingest'],
+  'node.roles': ['data', 'ingest', 'remote_cluster_client'],
 });
 
 nodeConfig.set('seed-manager', {
   'node.name': 'seed',
-  'node.roles': ['cluster_manager'],
+  'node.roles': ['cluster_manager', 'remote_cluster_client'],
 });
 
 nodeConfig.set('seed-data', {
   'node.name': 'seed',
-  'node.roles': ['cluster_manager', 'data'],
+  'node.roles': ['cluster_manager', 'data', 'remote_cluster_client'],
 });
 
 nodeConfig.set('client', {
