@@ -9,7 +9,20 @@ import { App, Stack } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
-import { arm64Ec2InstanceType, x64Ec2InstanceType } from '../lib/opensearch-config/node-config';
+import {
+  arm64Ec2InstanceType, getArm64InstanceTypes, x64Ec2InstanceType,
+} from '../lib/opensearch-config/node-config';
+
+test.each([
+  arm64Ec2InstanceType.M7G_XLARGE,
+  arm64Ec2InstanceType.M7G_2XLARGE,
+  arm64Ec2InstanceType.M7G_4XLARGE,
+])('supports ARM64 instance type %s', (instanceType) => {
+  const instanceDetails = getArm64InstanceTypes(instanceType);
+
+  expect(instanceDetails.instance.toString()).toEqual(instanceType);
+  expect(instanceDetails.hasInternalStorage).toBe(false);
+});
 
 test('Test Resources with security disabled multi-node default instance types', () => {
   const app = new App({
