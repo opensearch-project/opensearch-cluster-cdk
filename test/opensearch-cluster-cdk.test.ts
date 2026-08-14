@@ -206,6 +206,7 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
       restrictServerAccessTo: '10.10.10.10/32',
       dataNodeStorage: 200,
       mlNodeCount: 1,
+      managerInstanceType: 'm5.2xlarge',
       mlInstanceType: 'g5.xlarge',
       dataInstanceType: 'r5.xlarge',
     },
@@ -298,6 +299,11 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
       InstanceType: 'g5.xlarge',
     },
   });
+  infraTemplate.resourcePropertiesCountIs('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: Match.objectLike({
+      InstanceType: 'm5.2xlarge',
+    }),
+  }, 2);
 });
 
 test('Test Resources with security enabled single-node cluster', () => {

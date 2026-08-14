@@ -118,6 +118,8 @@ export interface InfraProps extends StackProps {
   readonly dataNodeStorage?: number,
   /** EBS block storage size for ml nodes */
   readonly mlNodeStorage?: number,
+  /** EC2 instance type for cluster manager nodes */
+  readonly managerInstanceType?: InstanceType,
   /** EC2 instance type for data nodes */
   readonly dataInstanceType?: InstanceType,
   /** EC2 instance type for ML nodes */
@@ -199,6 +201,8 @@ export class InfraStack extends Stack {
 
   private useInstanceBasedStorage: boolean;
 
+  private managerInstanceType: InstanceType;
+
   private dataInstanceType: InstanceType;
 
   private mlInstanceType: InstanceType;
@@ -278,6 +282,7 @@ export class InfraStack extends Stack {
     }
 
     this.dashboardsUrl = `${props?.dashboardsUrl ?? scope.node.tryGetContext('dashboardsUrl')}`;
+    const managerInstanceType: InstanceType | string = `${props?.managerInstanceType ?? scope.node.tryGetContext('managerInstanceType')}`;
     const dataInstanceType: InstanceType | string = `${props?.dataInstanceType ?? scope.node.tryGetContext('dataInstanceType')}`;
     const mlInstanceType: InstanceType | string = `${props?.mlInstanceType ?? scope.node.tryGetContext('mlInstanceType')}`;
 
@@ -288,15 +293,25 @@ export class InfraStack extends Stack {
     } else if (Object.values(cpuArchEnum).includes(this.cpuArch.toString())) {
       if (this.cpuArch.toString() === cpuArchEnum.X64) {
         instanceCpuType = AmazonLinuxCpuType.X86_64;
+        const managerInstanceDetails = getInstanceType(
+          managerInstanceType === 'undefined' ? 'c5.xlarge' : managerInstanceType,
+          this.cpuArch.toString(),
+        );
         const dataInstanceDetails = getInstanceType(dataInstanceType, this.cpuArch.toString());
         const mlInstanceDetails = getInstanceType(mlInstanceType, this.cpuArch.toString());
+        this.managerInstanceType = managerInstanceDetails.instance;
         this.dataInstanceType = dataInstanceDetails.instance;
         this.mlInstanceType = mlInstanceDetails.instance;
         this.checkInstanceStorageSettings(dataInstanceDetails.hasInternalStorage);
       } else {
         instanceCpuType = AmazonLinuxCpuType.ARM_64;
+        const managerInstanceDetails = getInstanceType(
+          managerInstanceType === 'undefined' ? 'c6g.xlarge' : managerInstanceType,
+          this.cpuArch.toString(),
+        );
         const dataInstanceDetails = getInstanceType(dataInstanceType, this.cpuArch.toString());
         const mlInstanceDetails = getInstanceType(mlInstanceType, this.cpuArch.toString());
+        this.managerInstanceType = managerInstanceDetails.instance;
         this.dataInstanceType = dataInstanceDetails.instance;
         this.mlInstanceType = mlInstanceDetails.instance;
         this.checkInstanceStorageSettings(dataInstanceDetails.hasInternalStorage);
@@ -656,7 +671,7 @@ export class InfraStack extends Stack {
       if (managerAsgCapacity > 0) {
         const managerNodeAsg = new AutoScalingGroup(this, 'managerNodeAsg', {
           launchTemplate: new LaunchTemplate(this, 'managerNodeLt', {
-            instanceType: defaultInstanceType,
+            instanceType: this.managerInstanceType,
             machineImage: MachineImage.latestAmazonLinux2023({
               cpuType: instanceCpuType,
             }),
@@ -681,7 +696,9 @@ export class InfraStack extends Stack {
           vpcSubnets: {
             subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
           },
-          init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, 'manager', defaultInstanceType.toString())),
+          init: CloudFormationInit.fromElements(
+            ...this.getCfnInitElement(this, clusterLogGroup, 'manager', this.managerInstanceType.toString()),
+          ),
           initOptions: {
             ignoreFailures: false,
           },
@@ -696,7 +713,7 @@ export class InfraStack extends Stack {
 
       const seedNodeAsg = new AutoScalingGroup(this, 'seedNodeAsg', {
         launchTemplate: new LaunchTemplate(this, 'seedNodeLt', {
-          instanceType: (seedConfig === 'seed-manager') ? defaultInstanceType : this.dataInstanceType,
+          instanceType: (seedConfig === 'seed-manager') ? this.managerInstanceType : this.dataInstanceType,
           machineImage: MachineImage.latestAmazonLinux2023({
             cpuType: instanceCpuType,
           }),
@@ -730,7 +747,7 @@ export class InfraStack extends Stack {
           subnetType: usePublicSubnet ? SubnetType.PUBLIC : SubnetType.PRIVATE_WITH_EGRESS,
         },
         init: CloudFormationInit.fromElements(...this.getCfnInitElement(this, clusterLogGroup, seedConfig,
-          (seedConfig === 'seed-manager') ? defaultInstanceType.toString() : this.dataInstanceType.toString())),
+          (seedConfig === 'seed-manager') ? this.managerInstanceType.toString() : this.dataInstanceType.toString())),
         initOptions: {
           ignoreFailures: false,
         },
