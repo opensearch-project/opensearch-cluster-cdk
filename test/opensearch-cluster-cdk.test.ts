@@ -9,7 +9,20 @@ import { App, Stack } from 'aws-cdk-lib';
 import { Match, Template } from 'aws-cdk-lib/assertions';
 import { InfraStack } from '../lib/infra/infra-stack';
 import { NetworkStack } from '../lib/networking/vpc-stack';
-import { arm64Ec2InstanceType, x64Ec2InstanceType } from '../lib/opensearch-config/node-config';
+import {
+  arm64Ec2InstanceType, getArm64InstanceTypes, x64Ec2InstanceType,
+} from '../lib/opensearch-config/node-config';
+
+test.each([
+  arm64Ec2InstanceType.M7G_XLARGE,
+  arm64Ec2InstanceType.M7G_2XLARGE,
+  arm64Ec2InstanceType.M7G_4XLARGE,
+])('supports ARM64 instance type %s', (instanceType) => {
+  const instanceDetails = getArm64InstanceTypes(instanceType);
+
+  expect(instanceDetails.instance.toString()).toEqual(instanceType);
+  expect(instanceDetails.hasInternalStorage).toBe(false);
+});
 
 test('Test Resources with security disabled multi-node default instance types', () => {
   const app = new App({
@@ -206,6 +219,7 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
       restrictServerAccessTo: '10.10.10.10/32',
       dataNodeStorage: 200,
       mlNodeCount: 1,
+      managerInstanceType: 'm5.2xlarge',
       mlInstanceType: 'g5.xlarge',
       dataInstanceType: 'r5.xlarge',
     },
@@ -298,6 +312,11 @@ test('Test Resources with security enabled multi-node with existing Vpc with use
       InstanceType: 'g5.xlarge',
     },
   });
+  infraTemplate.resourcePropertiesCountIs('AWS::EC2::LaunchTemplate', {
+    LaunchTemplateData: Match.objectLike({
+      InstanceType: 'm5.2xlarge',
+    }),
+  }, 2);
 });
 
 test('Test Resources with security enabled single-node cluster', () => {

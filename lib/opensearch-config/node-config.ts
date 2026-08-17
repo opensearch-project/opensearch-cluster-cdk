@@ -78,6 +78,9 @@ export enum x64Ec2InstanceType {
 export enum arm64Ec2InstanceType {
   M6G_XLARGE = 'm6g.xlarge',
   M6G_2XLARGE = 'm6g.2xlarge',
+  M7G_XLARGE = 'm7g.xlarge',
+  M7G_2XLARGE = 'm7g.2xlarge',
+  M7G_4XLARGE = 'm7g.4xlarge',
   C6G_LARGE = 'c6g.large',
   C6G_XLARGE = 'c6g.xlarge',
   C6G_2XLARGE = 'c6g.2xlarge',
@@ -200,6 +203,12 @@ export const getArm64InstanceTypes = (instanceType: string): InstanceTypeInfo =>
     return { instance: InstanceType.of(InstanceClass.M6G, InstanceSize.XLARGE), hasInternalStorage: false };
   case arm64Ec2InstanceType.M6G_2XLARGE:
     return { instance: InstanceType.of(InstanceClass.M6G, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case arm64Ec2InstanceType.M7G_XLARGE:
+    return { instance: InstanceType.of(InstanceClass.M7G, InstanceSize.XLARGE), hasInternalStorage: false };
+  case arm64Ec2InstanceType.M7G_2XLARGE:
+    return { instance: InstanceType.of(InstanceClass.M7G, InstanceSize.XLARGE2), hasInternalStorage: false };
+  case arm64Ec2InstanceType.M7G_4XLARGE:
+    return { instance: InstanceType.of(InstanceClass.M7G, InstanceSize.XLARGE4), hasInternalStorage: false };
   case arm64Ec2InstanceType.C6G_LARGE:
     return { instance: InstanceType.of(InstanceClass.C6G, InstanceSize.LARGE), hasInternalStorage: false };
   case arm64Ec2InstanceType.C6G_XLARGE:
